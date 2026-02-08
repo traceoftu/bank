@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import axios from 'axios';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface FileItem {
     name: string;
@@ -10,8 +11,11 @@ interface FileItem {
     size?: number;
 }
 
-export default function FolderBrowser() {
-    const [currentPath, setCurrentPath] = useState<string>(''); // Empty defaults to root env var
+function FolderBrowserContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const currentPath = searchParams.get('path') || '';
+
     const [items, setItems] = useState<FileItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -44,21 +48,29 @@ export default function FolderBrowser() {
     }, [currentPath]);
 
     const handleFolderClick = (path: string) => {
-        setCurrentPath(path);
+        router.push(`/?path=${encodeURIComponent(path)}`);
     };
 
     const handleBackClick = () => {
         if (!currentPath) return;
 
-        // Simple parent directory logic
         const parts = currentPath.split('/');
         parts.pop();
         const newPath = parts.join('/');
 
-        setCurrentPath(newPath);
+        if (!newPath) {
+            router.push('/');
+        } else {
+            router.push(`/?path=${encodeURIComponent(newPath)}`);
+        }
     };
 
     const handleVideoClick = (path: string) => {
+        // Direct stream since we are using valid SSL now
+        const synologyUrl = 'https://traceofsh.synology.me:5001';
+        // Note: For client-side direct play, we need the SID. 
+        // But the previous implementation (FolderBrowser.tsx) was fetching a proxied stream URL or using an API route that redirects.
+        // Let's stick to the API route '/api/videos/stream' which now redirects to the direct Synology URL.
         const streamApiUrl = `/api/videos/stream?path=${encodeURIComponent(path)}`;
         setPlayingUrl(streamApiUrl);
     };
@@ -89,12 +101,11 @@ export default function FolderBrowser() {
                 <nav className="flex items-center text-sm font-medium text-zinc-400">
                     <span
                         className={`cursor-pointer hover:text-white transition-colors ${!currentPath ? 'text-blue-400' : ''}`}
-                        onClick={() => setCurrentPath('')}
+                        onClick={() => router.push('/')}
                     >
                         Root
                     </span>
                     {currentPath && currentPath.split('/').map((part, index, arr) => {
-                        // Simple breadcrumb logic
                         return (
                             <span key={index} className="flex items-center">
                                 <span className="mx-2 text-zinc-600">/</span>
@@ -166,5 +177,13 @@ export default function FolderBrowser() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function FolderBrowser() {
+    return (
+        <Suspense fallback={<div className="text-center py-8 text-zinc-500">Loading...</div>}>
+            <FolderBrowserContent />
+        </Suspense>
     );
 }
