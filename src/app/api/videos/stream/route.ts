@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getR2Object } from '@/lib/r2';
 
 export const runtime = 'edge';
+
+const R2_PUBLIC_URL = 'https://pub-cb95174e25324c44a23457198e4de7c5.r2.dev';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -12,18 +13,11 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const object = await getR2Object(path);
+        // Redirect to R2 public URL for streaming
+        const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+        const streamUrl = `${R2_PUBLIC_URL}/${encodedPath}`;
         
-        if (!object) {
-            return NextResponse.json({ error: 'File not found' }, { status: 404 });
-        }
-
-        const headers = new Headers();
-        headers.set('Content-Type', object.httpMetadata?.contentType || 'video/mp4');
-        headers.set('Content-Length', object.size.toString());
-        headers.set('Accept-Ranges', 'bytes');
-        
-        return new NextResponse(object.body, { headers });
+        return NextResponse.redirect(streamUrl);
     } catch (error: any) {
         console.error('Stream Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
