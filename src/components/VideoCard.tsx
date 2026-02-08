@@ -48,22 +48,31 @@ export default function VideoCard({ name, path, size, viewCount, onPlay }: Video
             onMouseLeave={handleMouseLeave}
             onClick={() => onPlay(path)}
         >
-            {/* 미리보기 영상 */}
+            {/* 포스터 이미지 (영상 첫 프레임) */}
+            <video
+                src={`${videoUrl}#t=0.1`}
+                muted
+                playsInline
+                preload="metadata"
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isHovering ? 'opacity-0' : 'opacity-100'}`}
+            />
+
+            {/* 미리보기 영상 (호버 시) */}
             <video
                 ref={videoRef}
                 src={videoUrl}
                 muted
                 loop
                 playsInline
-                preload="metadata"
+                preload="none"
                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isHovering ? 'opacity-100' : 'opacity-0'}`}
             />
 
-            {/* 기본 상태 (그라데이션 + 아이콘) */}
-            <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-300 ${isHovering ? 'opacity-0' : 'opacity-100'}`}>
+            {/* 재생 버튼 오버레이 */}
+            <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-300 ${isHovering ? 'opacity-0' : 'opacity-100'}`}>
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                        <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <div className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:scale-110 transition-transform">
+                        <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                         </svg>
                     </div>
