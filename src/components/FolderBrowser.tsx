@@ -191,8 +191,8 @@ function FolderBrowserContent() {
                     {/* 인기 Top10 (홈 페이지에서만 표시) - 넷플릭스 스타일 */}
                     {!currentPath && !searchQuery && popularVideos.length > 0 && (
                         <div className="mb-10">
-                            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                🔥 오늘의 TOP 10
+                            <h2 className="text-xl font-bold text-white mb-6">
+                                오늘의 TOP 10
                             </h2>
                             <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-4 scrollbar-hide">
                                 {popularVideos.map((video, index) => (
