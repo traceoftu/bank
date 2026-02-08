@@ -23,7 +23,7 @@ class SynologyClient {
                     session: 'FileStation',
                     format: 'cookie',
                 },
-                timeout: 10000, // 10s timeout
+                timeout: 30000, // 30s timeout
             });
 
             if (response.data.success) {

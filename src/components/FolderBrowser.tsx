@@ -48,34 +48,17 @@ export default function FolderBrowser() {
     };
 
     const handleBackClick = () => {
-        // Simple parent directory logic
-        if (!currentPath) return; // Already at root (conceptually)
+        if (!currentPath) return;
 
-        // Check if we are at the "root" defined by env, if so, don't go back further?
-        // For now, let's just split by '/' and pop.
+        // Simple parent directory logic
         const parts = currentPath.split('/');
         parts.pop();
         const newPath = parts.join('/');
-        // Check against env root path logic or just let API handle it? 
-        // API uses 'path' param or defaults to env root. 
-        // If we send empty string, API uses env root.
-        // So if newPath is shorter than env root, we should probably send empty string?
-        // Actually simpler: if we just navigated into subfolders, popping works.
-        // If we are at the initial load state (empty string), we can't go back.
-
-        // Better logic: store history or just rely on path.
-        // If currentPath is empty, we are at root.
-        // When we get the list, the items have full paths, e.g. "/video/church/2023"
-        // So currentPath will become "/video/church/2023".
-
-        // We need to know what the ROOT is to know when to stop going up.
-        // Let's assume the first items we see are children of the root.
 
         setCurrentPath(newPath);
     };
 
     const handleVideoClick = (path: string) => {
-        // Open video player
         const streamApiUrl = `/api/videos/stream?path=${encodeURIComponent(path)}`;
         setPlayingUrl(streamApiUrl);
     };
@@ -84,10 +67,11 @@ export default function FolderBrowser() {
         <div className="w-full max-w-4xl mx-auto p-4">
             {playingUrl && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                    <div className="bg-black w-full max-w-5xl rounded-lg overflow-hidden relative">
+                    <div className="bg-black w-full max-w-5xl rounded-lg overflow-hidden relative group">
                         <button
                             onClick={() => setPlayingUrl(null)}
-                            className="absolute top-4 right-4 text-white text-xl font-bold bg-gray-800 rounded-full w-10 h-10 flex items-center justify-center hover:bg-gray-700"
+                            className="absolute top-4 right-4 text-white text-xl font-bold bg-gray-800/80 hover:bg-gray-700/80 rounded-full w-10 h-10 flex items-center justify-center z-50 transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"
+                            aria-label="Close video"
                         >
                             ✕
                         </button>
