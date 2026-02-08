@@ -75,6 +75,25 @@ class SynologyClient {
         });
     }
 
+    async search(pattern: string, folderPath: string = '/video') {
+        return this.request('entry.cgi', {
+            api: 'SYNO.FileStation.List',
+            version: 2,
+            method: 'list',
+            folder_path: folderPath,
+            active_list_type: 'ignore', // Ignore pagination for simple search if possible, or we might need loops. 
+            // Actually FileStation.List with pattern is NOT recursive by default unless specified? 
+            // Wait, SYNO.FileStation.Search is the proper API for recursive search, but List can filter.
+            // Let's use List with pattern first as it is faster for current folder. 
+            // If we want recursive search we should use SYNO.FileStation.List with recursive=true (warning: slow).
+            // Let's try recursive=true on root.
+            recursive: true,
+            pattern: pattern,
+            filetype: 'file', // Only files
+            additional: 'real_path,size,owner,time,perm,type',
+        });
+    }
+
     async getFile(path: string) {
         // Get file details or stream
         return this.request('entry.cgi', {

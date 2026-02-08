@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import Link from "next/link";
+import SearchHeader from "@/components/SearchHeader";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,10 +38,9 @@ export default function RootLayout({
                 JBCH Word Bank
               </h1>
             </Link>
-            {/* Placeholder for future nav or search */}
-            <div className="w-8 h-8 rounded-full bg-zinc-800/50 flex items-center justify-center text-xs text-zinc-500">
-              🔎
-            </div>
+            <Suspense fallback={<div className="w-8 h-8 rounded-full bg-zinc-800/50" />}>
+              <SearchHeader />
+            </Suspense>
           </div>
         </header>
         <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
