@@ -56,6 +56,19 @@ async function getSignatureKey(
     return hmacSha256(kService, 'aws4_request');
 }
 
+function getCanonicalQueryString(searchParams: URLSearchParams): string {
+    const params: [string, string][] = [];
+    searchParams.forEach((value, key) => {
+        params.push([encodeURIComponent(key), encodeURIComponent(value)]);
+    });
+    params.sort((a, b) => {
+        if (a[0] < b[0]) return -1;
+        if (a[0] > b[0]) return 1;
+        return a[1] < b[1] ? -1 : 1;
+    });
+    return params.map(([k, v]) => `${k}=${v}`).join('&');
+}
+
 async function signRequest(
     method: string,
     url: string,
@@ -72,19 +85,22 @@ async function signRequest(
     const payloadHash = await sha256(payload);
     
     const signedHeaders: Record<string, string> = {
-        ...headers,
         'host': urlObj.host,
-        'x-amz-date': amzDate,
         'x-amz-content-sha256': payloadHash,
+        'x-amz-date': amzDate,
     };
 
+    // Headers must be sorted alphabetically by lowercase key
     const sortedHeaderKeys = Object.keys(signedHeaders).sort();
     const canonicalHeaders = sortedHeaderKeys
-        .map(k => `${k.toLowerCase()}:${signedHeaders[k].trim()}`)
+        .map(k => `${k}:${signedHeaders[k]}`)
         .join('\n');
-    const signedHeadersStr = sortedHeaderKeys.map(k => k.toLowerCase()).join(';');
+    const signedHeadersStr = sortedHeaderKeys.join(';');
 
-    const canonicalQueryString = urlObj.searchParams.toString();
+    // Query string must be sorted
+    const canonicalQueryString = getCanonicalQueryString(urlObj.searchParams);
+    
+    // URI must be encoded properly
     const canonicalUri = urlObj.pathname;
 
     const canonicalRequest = [
