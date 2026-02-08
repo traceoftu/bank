@@ -77,7 +77,7 @@ function FolderBrowserContent() {
             {playingUrl && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl bg-black/60 animate-in fade-in duration-200">
                     <div className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group">
-                        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <a
                                 href={`/api/videos/download?path=${encodeURIComponent(playingPath || '')}`}
                                 target="_blank"
