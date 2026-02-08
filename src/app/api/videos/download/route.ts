@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { synologyClient } from '@/lib/synology';
+import { getR2DownloadUrl } from '@/lib/r2';
+
+export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -10,11 +12,11 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const sid = await synologyClient.getSid();
-        const synologyUrl = process.env.SYNOLOGY_URL;
-
-        // Redirect to Synology with mode=download to force valid filename
-        const downloadUrl = `${synologyUrl}/webapi/entry.cgi?api=SYNO.FileStation.Download&version=2&method=download&path=${encodeURIComponent(path)}&_sid=${sid}&mode=download`;
+        // Extract filename from path
+        const filename = path.split('/').pop() || 'video.mp4';
+        
+        // Generate presigned URL for R2 download (valid for 1 hour)
+        const downloadUrl = await getR2DownloadUrl(path, filename, 3600);
 
         return NextResponse.redirect(downloadUrl);
     } catch (error: any) {

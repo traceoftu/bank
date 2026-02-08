@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { synologyClient } from '@/lib/synology';
+import { getR2StreamUrl } from '@/lib/r2';
+
+export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -10,12 +12,10 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const sid = await synologyClient.getSid();
-        const synologyUrl = process.env.SYNOLOGY_URL;
+        // Generate presigned URL for R2 (valid for 1 hour)
+        const streamUrl = await getR2StreamUrl(path, 3600);
 
-        // Direct Redirect (Fastest, requires valid SSL on Synology)
-        const streamUrl = `${synologyUrl}/webapi/entry.cgi?api=SYNO.FileStation.Download&version=2&method=download&path=${encodeURIComponent(path)}&_sid=${sid}&mode=open`;
-
+        // Redirect to R2 CDN
         return NextResponse.redirect(streamUrl);
     } catch (error: any) {
         console.error('Stream Error:', error);

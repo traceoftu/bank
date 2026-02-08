@@ -1,0 +1,11 @@
+name = "jbch-word-bank"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# R2 Bucket Bindings (Cloudflare Pages에서 자동 연결)
+[[r2_buckets]]
+binding = "VIDEOS"
+bucket_name = "jbch-word-bank-videos"
+
+# 환경 변수는 Cloudflare Pages 대시보드에서 설정
+# R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME
