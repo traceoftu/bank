@@ -31,6 +31,13 @@ function FolderBrowserContent() {
     const [error, setError] = useState<string | null>(null);
     const [playingUrl, setPlayingUrl] = useState<string | null>(null);
     const [playingPath, setPlayingPath] = useState<string | null>(null);
+    const [isIOS, setIsIOS] = useState(false);
+
+    useEffect(() => {
+        // iOS 감지
+        const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        setIsIOS(checkIOS);
+    }, []);
 
     const fetchItems = async (path: string, query: string) => {
         setLoading(true);
@@ -113,9 +120,31 @@ function FolderBrowserContent() {
     return (
         <div className="w-full">
             {playingUrl && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl bg-black/60 animate-in fade-in duration-200">
-                    <div className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group">
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl bg-black/60 animate-in fade-in duration-200"
+                    onClick={() => {
+                        setPlayingUrl(null);
+                        setPlayingPath(null);
+                    }}
+                >
+                    <div 
+                        className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+                            {/* iOS 전용 다운로드 버튼 */}
+                            {isIOS && playingPath && (
+                                <a
+                                    href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
+                                    download
+                                    className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
+                                    aria-label="Download video"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                </a>
+                            )}
                             {/* 닫기 버튼 */}
                             <button
                                 onClick={() => {
