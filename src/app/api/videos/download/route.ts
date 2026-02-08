@@ -13,11 +13,29 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Redirect to R2 public URL for download
         const encodedPath = path.split('/').map(encodeURIComponent).join('/');
         const downloadUrl = `${R2_PUBLIC_URL}/${encodedPath}`;
         
-        return NextResponse.redirect(downloadUrl);
+        // 파일명 추출
+        const fileName = path.split('/').pop() || 'video.mp4';
+        
+        // R2에서 파일 가져오기
+        const response = await fetch(downloadUrl);
+        
+        if (!response.ok) {
+            return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
+        
+        // Content-Disposition 헤더로 다운로드 강제
+        const headers = new Headers();
+        headers.set('Content-Type', response.headers.get('Content-Type') || 'video/mp4');
+        headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        headers.set('Content-Length', response.headers.get('Content-Length') || '');
+        
+        return new NextResponse(response.body, {
+            status: 200,
+            headers,
+        });
     } catch (error: any) {
         console.error('Download Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
