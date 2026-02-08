@@ -1,20 +1,5 @@
-// Edge-compatible R2 client using aws4fetch
-import { AwsClient } from 'aws4fetch';
-
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID!;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY!;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME!;
-
-const R2_ENDPOINT = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-
-// Create aws4fetch client for R2
-const r2 = new AwsClient({
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-    service: 's3',
-    region: 'auto',
-});
+// R2 client using Cloudflare Bindings (no signature required)
+import { getRequestContext } from '@cloudflare/next-on-pages';
 
 export interface R2File {
     name: string;
@@ -24,58 +9,48 @@ export interface R2File {
     isDirectory: boolean;
 }
 
+// Get R2 bucket from Cloudflare bindings
+function getR2Bucket(): R2Bucket {
+    const { env } = getRequestContext();
+    return (env as any).VIDEOS as R2Bucket;
+}
+
 /**
  * List files in R2 bucket
  */
 export async function listR2Files(prefix: string = ''): Promise<R2File[]> {
     try {
-        const params = new URLSearchParams({
-            'list-type': '2',
-            'delimiter': '/',
+        const bucket = getR2Bucket();
+        const listed = await bucket.list({
+            prefix: prefix || undefined,
+            delimiter: '/',
         });
-        if (prefix) {
-            params.set('prefix', prefix);
-        }
 
-        const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}?${params.toString()}`;
-        const response = await r2.fetch(url);
-        
-        if (!response.ok) {
-            throw new Error(`R2 API error: ${response.status} ${await response.text()}`);
-        }
-
-        const text = await response.text();
         const files: R2File[] = [];
 
-        // Parse XML response manually (Edge-compatible)
-        // Parse CommonPrefixes (directories)
-        const prefixMatches = text.matchAll(/<CommonPrefixes><Prefix>([^<]+)<\/Prefix><\/CommonPrefixes>/g);
-        for (const match of prefixMatches) {
-            const prefixPath = match[1];
-            const name = prefixPath.split('/').filter(Boolean).pop() || '';
-            files.push({
-                name,
-                path: prefixPath,
-                size: 0,
-                modified: new Date(),
-                isDirectory: true,
-            });
-        }
-
-        // Parse Contents (files)
-        const contentMatches = text.matchAll(/<Contents>[\s\S]*?<Key>([^<]+)<\/Key>[\s\S]*?<LastModified>([^<]+)<\/LastModified>[\s\S]*?<Size>([^<]+)<\/Size>[\s\S]*?<\/Contents>/g);
-        for (const match of contentMatches) {
-            const key = match[1];
-            const lastModified = match[2];
-            const size = parseInt(match[3], 10);
-            
-            if (!key.endsWith('/')) {
-                const name = key.split('/').pop() || '';
+        // Add directories (delimitedPrefixes)
+        if (listed.delimitedPrefixes) {
+            for (const prefixPath of listed.delimitedPrefixes) {
+                const name = prefixPath.split('/').filter(Boolean).pop() || '';
                 files.push({
                     name,
-                    path: key,
-                    size,
-                    modified: new Date(lastModified),
+                    path: prefixPath,
+                    size: 0,
+                    modified: new Date(),
+                    isDirectory: true,
+                });
+            }
+        }
+
+        // Add files (objects)
+        for (const object of listed.objects) {
+            if (!object.key.endsWith('/')) {
+                const name = object.key.split('/').pop() || '';
+                files.push({
+                    name,
+                    path: object.key,
+                    size: object.size,
+                    modified: object.uploaded,
                     isDirectory: false,
                 });
             }
@@ -89,36 +64,11 @@ export async function listR2Files(prefix: string = ''): Promise<R2File[]> {
 }
 
 /**
- * Generate presigned URL for streaming video
+ * Get file from R2 and return Response for streaming
  */
-export async function getR2StreamUrl(filePath: string, expiresIn: number = 3600): Promise<string> {
-    const encodedKey = filePath.split('/').map(encodeURIComponent).join('/');
-    const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${encodedKey}`;
-    
-    const signedRequest = await r2.sign(url, {
-        method: 'GET',
-        aws: { signQuery: true },
-    });
-    
-    return signedRequest.url;
-}
-
-/**
- * Generate presigned URL for downloading video
- */
-export async function getR2DownloadUrl(filePath: string, filename: string, expiresIn: number = 3600): Promise<string> {
-    const encodedKey = filePath.split('/').map(encodeURIComponent).join('/');
-    const params = new URLSearchParams({
-        'response-content-disposition': `attachment; filename="${filename}"`,
-    });
-    const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${encodedKey}?${params.toString()}`;
-    
-    const signedRequest = await r2.sign(url, {
-        method: 'GET',
-        aws: { signQuery: true },
-    });
-    
-    return signedRequest.url;
+export async function getR2Object(filePath: string): Promise<R2ObjectBody | null> {
+    const bucket = getR2Bucket();
+    return bucket.get(filePath);
 }
 
 /**
@@ -126,35 +76,20 @@ export async function getR2DownloadUrl(filePath: string, filename: string, expir
  */
 export async function searchR2Files(pattern: string): Promise<R2File[]> {
     try {
-        const params = new URLSearchParams({
-            'list-type': '2',
-        });
+        const bucket = getR2Bucket();
+        const listed = await bucket.list();
 
-        const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}?${params.toString()}`;
-        const response = await r2.fetch(url);
-        
-        if (!response.ok) {
-            throw new Error(`R2 API error: ${response.status} ${await response.text()}`);
-        }
-
-        const text = await response.text();
         const files: R2File[] = [];
 
-        // Parse Contents (files)
-        const contentMatches = text.matchAll(/<Contents>[\s\S]*?<Key>([^<]+)<\/Key>[\s\S]*?<LastModified>([^<]+)<\/LastModified>[\s\S]*?<Size>([^<]+)<\/Size>[\s\S]*?<\/Contents>/g);
-        for (const match of contentMatches) {
-            const key = match[1];
-            const lastModified = match[2];
-            const size = parseInt(match[3], 10);
-            
-            if (!key.endsWith('/')) {
-                const name = key.split('/').pop() || '';
+        for (const object of listed.objects) {
+            if (!object.key.endsWith('/')) {
+                const name = object.key.split('/').pop() || '';
                 if (name.toLowerCase().includes(pattern.toLowerCase())) {
                     files.push({
                         name,
-                        path: key,
-                        size,
-                        modified: new Date(lastModified),
+                        path: object.key,
+                        size: object.size,
+                        modified: object.uploaded,
                         isDirectory: false,
                     });
                 }

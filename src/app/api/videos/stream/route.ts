@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getR2StreamUrl } from '@/lib/r2';
+import { getR2Object } from '@/lib/r2';
 
 export const runtime = 'edge';
 
@@ -12,11 +12,18 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Generate presigned URL for R2 (valid for 1 hour)
-        const streamUrl = await getR2StreamUrl(path, 3600);
+        const object = await getR2Object(path);
+        
+        if (!object) {
+            return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
 
-        // Redirect to R2 CDN
-        return NextResponse.redirect(streamUrl);
+        const headers = new Headers();
+        headers.set('Content-Type', object.httpMetadata?.contentType || 'video/mp4');
+        headers.set('Content-Length', object.size.toString());
+        headers.set('Accept-Ranges', 'bytes');
+        
+        return new NextResponse(object.body, { headers });
     } catch (error: any) {
         console.error('Stream Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
