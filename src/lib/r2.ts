@@ -1,4 +1,5 @@
-// Edge-compatible R2 client using native fetch with AWS Signature V4
+// Edge-compatible R2 client using aws4fetch
+import { AwsClient } from 'aws4fetch';
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID!;
@@ -7,128 +8,20 @@ const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME!;
 
 const R2_ENDPOINT = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
+// Create aws4fetch client for R2
+const r2 = new AwsClient({
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+    service: 's3',
+    region: 'auto',
+});
+
 export interface R2File {
     name: string;
     path: string;
     size: number;
     modified: Date;
     isDirectory: boolean;
-}
-
-// AWS Signature V4 helper functions
-async function hmacSha256(key: ArrayBuffer | string, message: string): Promise<ArrayBuffer> {
-    const encoder = new TextEncoder();
-    const keyData = typeof key === 'string' ? encoder.encode(key) : key;
-    const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        keyData,
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
-    return crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
-}
-
-async function sha256(message: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(message);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hash))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-}
-
-function toHex(buffer: ArrayBuffer): string {
-    return Array.from(new Uint8Array(buffer))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-}
-
-async function getSignatureKey(
-    secretKey: string,
-    dateStamp: string,
-    region: string,
-    service: string
-): Promise<ArrayBuffer> {
-    const kDate = await hmacSha256('AWS4' + secretKey, dateStamp);
-    const kRegion = await hmacSha256(kDate, region);
-    const kService = await hmacSha256(kRegion, service);
-    return hmacSha256(kService, 'aws4_request');
-}
-
-function getCanonicalQueryString(searchParams: URLSearchParams): string {
-    const params: [string, string][] = [];
-    searchParams.forEach((value, key) => {
-        params.push([encodeURIComponent(key), encodeURIComponent(value)]);
-    });
-    params.sort((a, b) => {
-        if (a[0] < b[0]) return -1;
-        if (a[0] > b[0]) return 1;
-        return a[1] < b[1] ? -1 : 1;
-    });
-    return params.map(([k, v]) => `${k}=${v}`).join('&');
-}
-
-async function signRequest(
-    method: string,
-    url: string,
-    headers: Record<string, string>,
-    payload: string = ''
-): Promise<Record<string, string>> {
-    const urlObj = new URL(url);
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-    const dateStamp = amzDate.slice(0, 8);
-    const region = 'auto';
-    const service = 's3';
-
-    const payloadHash = await sha256(payload);
-    
-    const signedHeaders: Record<string, string> = {
-        'host': urlObj.host,
-        'x-amz-content-sha256': payloadHash,
-        'x-amz-date': amzDate,
-    };
-
-    // Headers must be sorted alphabetically by lowercase key
-    const sortedHeaderKeys = Object.keys(signedHeaders).sort();
-    const canonicalHeaders = sortedHeaderKeys
-        .map(k => `${k}:${signedHeaders[k]}`)
-        .join('\n');
-    const signedHeadersStr = sortedHeaderKeys.join(';');
-
-    // Query string must be sorted
-    const canonicalQueryString = getCanonicalQueryString(urlObj.searchParams);
-    
-    // URI must be encoded properly
-    const canonicalUri = urlObj.pathname;
-
-    const canonicalRequest = [
-        method,
-        canonicalUri,
-        canonicalQueryString,
-        canonicalHeaders + '\n',
-        signedHeadersStr,
-        payloadHash,
-    ].join('\n');
-
-    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const stringToSign = [
-        'AWS4-HMAC-SHA256',
-        amzDate,
-        credentialScope,
-        await sha256(canonicalRequest),
-    ].join('\n');
-
-    const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
-    const signature = toHex(await hmacSha256(signingKey, stringToSign));
-
-    const authHeader = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeadersStr}, Signature=${signature}`;
-
-    return {
-        ...signedHeaders,
-        'Authorization': authHeader,
-    };
 }
 
 /**
@@ -145,9 +38,7 @@ export async function listR2Files(prefix: string = ''): Promise<R2File[]> {
         }
 
         const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}?${params.toString()}`;
-        const headers = await signRequest('GET', url, {});
-
-        const response = await fetch(url, { headers });
+        const response = await r2.fetch(url);
         
         if (!response.ok) {
             throw new Error(`R2 API error: ${response.status} ${await response.text()}`);
@@ -201,99 +92,33 @@ export async function listR2Files(prefix: string = ''): Promise<R2File[]> {
  * Generate presigned URL for streaming video
  */
 export async function getR2StreamUrl(filePath: string, expiresIn: number = 3600): Promise<string> {
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-    const dateStamp = amzDate.slice(0, 8);
-    const region = 'auto';
-    const service = 's3';
-
-    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
-
-    const params = new URLSearchParams({
-        'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-        'X-Amz-Credential': credential,
-        'X-Amz-Date': amzDate,
-        'X-Amz-Expires': expiresIn.toString(),
-        'X-Amz-SignedHeaders': 'host',
-    });
-
     const encodedKey = filePath.split('/').map(encodeURIComponent).join('/');
-    const canonicalUri = `/${R2_BUCKET_NAME}/${encodedKey}`;
-    const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-
-    const canonicalRequest = [
-        'GET',
-        canonicalUri,
-        params.toString(),
-        `host:${host}\n`,
-        'host',
-        'UNSIGNED-PAYLOAD',
-    ].join('\n');
-
-    const stringToSign = [
-        'AWS4-HMAC-SHA256',
-        amzDate,
-        credentialScope,
-        await sha256(canonicalRequest),
-    ].join('\n');
-
-    const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
-    const signature = toHex(await hmacSha256(signingKey, stringToSign));
-
-    params.set('X-Amz-Signature', signature);
-
-    return `${R2_ENDPOINT}${canonicalUri}?${params.toString()}`;
+    const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${encodedKey}`;
+    
+    const signedRequest = await r2.sign(url, {
+        method: 'GET',
+        aws: { signQuery: true },
+    });
+    
+    return signedRequest.url;
 }
 
 /**
  * Generate presigned URL for downloading video
  */
 export async function getR2DownloadUrl(filePath: string, filename: string, expiresIn: number = 3600): Promise<string> {
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-    const dateStamp = amzDate.slice(0, 8);
-    const region = 'auto';
-    const service = 's3';
-
-    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
-
+    const encodedKey = filePath.split('/').map(encodeURIComponent).join('/');
     const params = new URLSearchParams({
-        'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-        'X-Amz-Credential': credential,
-        'X-Amz-Date': amzDate,
-        'X-Amz-Expires': expiresIn.toString(),
-        'X-Amz-SignedHeaders': 'host',
         'response-content-disposition': `attachment; filename="${filename}"`,
     });
-
-    const encodedKey = filePath.split('/').map(encodeURIComponent).join('/');
-    const canonicalUri = `/${R2_BUCKET_NAME}/${encodedKey}`;
-    const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-
-    const canonicalRequest = [
-        'GET',
-        canonicalUri,
-        params.toString(),
-        `host:${host}\n`,
-        'host',
-        'UNSIGNED-PAYLOAD',
-    ].join('\n');
-
-    const stringToSign = [
-        'AWS4-HMAC-SHA256',
-        amzDate,
-        credentialScope,
-        await sha256(canonicalRequest),
-    ].join('\n');
-
-    const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
-    const signature = toHex(await hmacSha256(signingKey, stringToSign));
-
-    params.set('X-Amz-Signature', signature);
-
-    return `${R2_ENDPOINT}${canonicalUri}?${params.toString()}`;
+    const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${encodedKey}?${params.toString()}`;
+    
+    const signedRequest = await r2.sign(url, {
+        method: 'GET',
+        aws: { signQuery: true },
+    });
+    
+    return signedRequest.url;
 }
 
 /**
@@ -306,9 +131,7 @@ export async function searchR2Files(pattern: string): Promise<R2File[]> {
         });
 
         const url = `${R2_ENDPOINT}/${R2_BUCKET_NAME}?${params.toString()}`;
-        const headers = await signRequest('GET', url, {});
-
-        const response = await fetch(url, { headers });
+        const response = await r2.fetch(url);
         
         if (!response.ok) {
             throw new Error(`R2 API error: ${response.status} ${await response.text()}`);
