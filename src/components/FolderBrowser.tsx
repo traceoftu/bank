@@ -102,6 +102,7 @@ function FolderBrowserContent() {
                             src={playingUrl}
                             controls
                             autoPlay
+                            controlsList="nodownload"
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"
                         />
                     </div>
