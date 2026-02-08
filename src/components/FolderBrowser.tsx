@@ -211,13 +211,14 @@ function FolderBrowserContent() {
                                             </span>
                                         </div>
                                         {/* 영상 카드 */}
-                                        <div className="relative z-10 w-32 sm:w-40 -ml-4">
+                                        <div className="relative z-10 w-24 sm:w-28 -ml-4">
                                             <VideoCard
                                                 name={video.name}
                                                 path={video.path}
                                                 size={video.size}
                                                 viewCount={video.views}
                                                 onPlay={handleVideoClick}
+                                                vertical={true}
                                             />
                                         </div>
                                     </div>

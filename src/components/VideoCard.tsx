@@ -8,11 +8,12 @@ interface VideoCardProps {
     size?: number;
     viewCount?: number;
     onPlay: (path: string) => void;
+    vertical?: boolean; // 넷플릭스 Top10 스타일 세로 비율
 }
 
 const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
 
-export default function VideoCard({ name, path, size, viewCount, onPlay }: VideoCardProps) {
+export default function VideoCard({ name, path, size, viewCount, onPlay, vertical = false }: VideoCardProps) {
     const [isHovering, setIsHovering] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,7 +44,7 @@ export default function VideoCard({ name, path, size, viewCount, onPlay }: Video
 
     return (
         <div
-            className="group relative aspect-video rounded-xl overflow-hidden cursor-pointer bg-zinc-900 border border-white/5 hover:border-white/20 hover:scale-105 hover:z-10 transition-all duration-300 hover:shadow-2xl hover:shadow-black/50"
+            className={`group relative rounded-xl overflow-hidden cursor-pointer bg-zinc-900 border border-white/5 hover:border-white/20 hover:scale-105 hover:z-10 transition-all duration-300 hover:shadow-2xl hover:shadow-black/50 ${vertical ? 'aspect-[2/3]' : 'aspect-video'}`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             onClick={() => onPlay(path)}
