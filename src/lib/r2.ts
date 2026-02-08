@@ -72,29 +72,39 @@ export async function getR2Object(filePath: string): Promise<R2ObjectBody | null
 }
 
 /**
- * Search files in R2 bucket
+ * Search files in R2 bucket (searches in filename and full path)
  */
 export async function searchR2Files(pattern: string): Promise<R2File[]> {
     try {
         const bucket = getR2Bucket();
-        const listed = await bucket.list();
-
         const files: R2File[] = [];
+        let cursor: string | undefined;
+        const searchPattern = pattern.toLowerCase();
 
-        for (const object of listed.objects) {
-            if (!object.key.endsWith('/')) {
-                const name = object.key.split('/').pop() || '';
-                if (name.toLowerCase().includes(pattern.toLowerCase())) {
-                    files.push({
-                        name,
-                        path: object.key,
-                        size: object.size,
-                        modified: object.uploaded,
-                        isDirectory: false,
-                    });
+        // Paginate through all objects
+        do {
+            const listed = await bucket.list({ cursor });
+
+            for (const object of listed.objects) {
+                if (!object.key.endsWith('/')) {
+                    const name = object.key.split('/').pop() || '';
+                    const fullPath = object.key.toLowerCase();
+                    
+                    // Search in both filename and full path
+                    if (name.toLowerCase().includes(searchPattern) || fullPath.includes(searchPattern)) {
+                        files.push({
+                            name,
+                            path: object.key,
+                            size: object.size,
+                            modified: object.uploaded,
+                            isDirectory: false,
+                        });
+                    }
                 }
             }
-        }
+
+            cursor = listed.truncated ? listed.cursor : undefined;
+        } while (cursor);
 
         return files;
     } catch (error) {
