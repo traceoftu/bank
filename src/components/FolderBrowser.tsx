@@ -187,25 +187,38 @@ function FolderBrowserContent() {
 
             {!loading && !error && (
                 <>
-                    {/* 인기 Top10 (홈 페이지에서만 표시) */}
+                    {/* 인기 Top10 (홈 페이지에서만 표시) - 넷플릭스 스타일 */}
                     {!currentPath && !searchQuery && popularVideos.length > 0 && (
                         <div className="mb-10">
-                            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                🔥 인기 Top 10
+                            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                🔥 오늘의 TOP 10
                             </h2>
-                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                            <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
                                 {popularVideos.map((video, index) => (
-                                    <div key={video.path} className="relative">
-                                        <div className="absolute -top-2 -left-2 z-10 w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
-                                            {index + 1}
+                                    <div key={video.path} className="relative flex-shrink-0 flex items-end">
+                                        {/* 큰 순위 숫자 */}
+                                        <div className="relative z-0 flex items-end justify-center w-16 sm:w-20">
+                                            <span 
+                                                className="text-[80px] sm:text-[100px] font-black leading-none select-none"
+                                                style={{
+                                                    color: 'transparent',
+                                                    WebkitTextStroke: '3px #404040',
+                                                    textShadow: '4px 4px 0 #000',
+                                                }}
+                                            >
+                                                {index + 1}
+                                            </span>
                                         </div>
-                                        <VideoCard
-                                            name={video.name}
-                                            path={video.path}
-                                            size={video.size}
-                                            viewCount={video.views}
-                                            onPlay={handleVideoClick}
-                                        />
+                                        {/* 영상 카드 */}
+                                        <div className="relative z-10 w-32 sm:w-40 -ml-4">
+                                            <VideoCard
+                                                name={video.name}
+                                                path={video.path}
+                                                size={video.size}
+                                                viewCount={video.views}
+                                                onPlay={handleVideoClick}
+                                            />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
