@@ -193,7 +193,7 @@ function FolderBrowserContent() {
                             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                                 🔥 오늘의 TOP 10
                             </h2>
-                            <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
+                            <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-4 scrollbar-hide">
                                 {popularVideos.map((video, index) => (
                                     <div key={video.path} className="relative flex-shrink-0 flex items-end">
                                         {/* 큰 순위 숫자 */}
