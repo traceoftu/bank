@@ -137,39 +137,40 @@ function FolderBrowserContent() {
                 </div>
             )}
 
-            <div className="flex items-center justify-between mb-8">
-                <nav className="flex items-center text-sm font-medium text-zinc-400">
-                    <span
-                        className={`cursor-pointer hover:text-white transition-colors ${!currentPath && !searchQuery ? 'text-blue-400' : ''}`}
-                        onClick={() => router.push('/')}
-                    >
-                        Root
-                    </span>
-                    {searchQuery && (
-                        <span className="flex items-center">
-                            <span className="mx-2 text-zinc-600">/</span>
-                            <span className="text-blue-400">검색: "{searchQuery}"</span>
+            {/* 브레드크럼 네비게이션 (홈이 아닐 때만 표시) */}
+            {(currentPath || searchQuery) && (
+                <div className="flex items-center justify-between mb-8">
+                    <nav className="flex items-center text-sm font-medium text-zinc-400">
+                        <span
+                            className="cursor-pointer hover:text-white transition-colors"
+                            onClick={() => router.push('/')}
+                        >
+                            홈
                         </span>
-                    )}
-                    {!searchQuery && currentPath && currentPath.split('/').map((part, index, arr) => {
-                        return (
-                            <span key={index} className="flex items-center">
+                        {searchQuery && (
+                            <span className="flex items-center">
                                 <span className="mx-2 text-zinc-600">/</span>
-                                <span className="text-zinc-200">{part}</span>
+                                <span className="text-blue-400">검색: "{searchQuery}"</span>
                             </span>
-                        )
-                    })}
-                </nav>
+                        )}
+                        {!searchQuery && currentPath && currentPath.split('/').map((part, index, arr) => {
+                            return (
+                                <span key={index} className="flex items-center">
+                                    <span className="mx-2 text-zinc-600">/</span>
+                                    <span className="text-zinc-200">{part}</span>
+                                </span>
+                            )
+                        })}
+                    </nav>
 
-                {currentPath && (
                     <button
                         onClick={handleBackClick}
                         className="px-4 py-2 text-sm font-medium text-zinc-300 transition-colors bg-zinc-800/50 hover:bg-zinc-800 rounded-lg hover:text-white border border-white/5"
                     >
-                        ← Back
+                        ← 뒤로
                     </button>
-                )}
-            </div>
+                </div>
+            )}
 
             {loading && (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
