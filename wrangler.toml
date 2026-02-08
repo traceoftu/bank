@@ -7,5 +7,10 @@ compatibility_flags = ["nodejs_compat"]
 binding = "VIDEOS"
 bucket_name = "jbch-word-bank-videos"
 
+# KV Namespace for view counts
+[[kv_namespaces]]
+binding = "VIEWS"
+id = "views_kv_id"
+
 # 환경 변수는 Cloudflare Pages 대시보드에서 설정
 # R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME

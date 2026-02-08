@@ -3,12 +3,20 @@
 import { useState, useEffect, Suspense } from 'react';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
+import VideoCard from './VideoCard';
 
 interface FileItem {
     name: string;
     path: string;
     isdir: boolean;
     size?: number;
+}
+
+interface PopularVideo {
+    name: string;
+    path: string;
+    size: number;
+    views: number;
 }
 
 function FolderBrowserContent() {
@@ -18,6 +26,7 @@ function FolderBrowserContent() {
     const searchQuery = searchParams.get('q') || '';
 
     const [items, setItems] = useState<FileItem[]>([]);
+    const [popularVideos, setPopularVideos] = useState<PopularVideo[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [playingUrl, setPlayingUrl] = useState<string | null>(null);
@@ -50,8 +59,24 @@ function FolderBrowserContent() {
         }
     };
 
+    // Fetch popular videos on home page
+    const fetchPopularVideos = async () => {
+        try {
+            const response = await axios.get('/api/videos/popular');
+            if (response.data.data?.videos) {
+                setPopularVideos(response.data.data.videos);
+            }
+        } catch (err) {
+            console.error('Failed to fetch popular videos:', err);
+        }
+    };
+
     useEffect(() => {
         fetchItems(currentPath, searchQuery);
+        // Fetch popular videos only on home page
+        if (!currentPath && !searchQuery) {
+            fetchPopularVideos();
+        }
     }, [currentPath, searchQuery]);
 
     const handleFolderClick = (path: string) => {
@@ -72,10 +97,17 @@ function FolderBrowserContent() {
         }
     };
 
-    const handleVideoClick = (path: string) => {
+    const handleVideoClick = async (path: string) => {
         const streamApiUrl = `/api/videos/stream?path=${encodeURIComponent(path)}`;
         setPlayingUrl(streamApiUrl);
         setPlayingPath(path);
+        
+        // Increment view count
+        try {
+            await axios.post('/api/videos/views', { path });
+        } catch (err) {
+            console.error('Failed to increment view count:', err);
+        }
     };
 
     return (
@@ -154,41 +186,77 @@ function FolderBrowserContent() {
             )}
 
             {!loading && !error && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {items.map((item) => (
-                        <div
-                            key={item.path}
-                            onClick={() => item.isdir ? handleFolderClick(item.path) : handleVideoClick(item.path)}
-                            className="group relative flex items-center p-4 gap-4 overflow-hidden transition-all duration-200 bg-zinc-900/40 border border-white/5 rounded-xl hover:bg-zinc-800/60 hover:border-white/10 hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 cursor-pointer backdrop-blur-sm"
-                        >
-                            <div className={`flex items-center justify-center w-12 h-12 text-2xl rounded-lg ${item.isdir ? 'bg-blue-500/10 text-blue-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                                {item.isdir ? '📁' : '▶'}
+                <>
+                    {/* 인기 Top10 (홈 페이지에서만 표시) */}
+                    {!currentPath && !searchQuery && popularVideos.length > 0 && (
+                        <div className="mb-10">
+                            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                🔥 인기 Top 10
+                            </h2>
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                                {popularVideos.map((video, index) => (
+                                    <div key={video.path} className="relative">
+                                        <div className="absolute -top-2 -left-2 z-10 w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                                            {index + 1}
+                                        </div>
+                                        <VideoCard
+                                            name={video.name}
+                                            path={video.path}
+                                            size={video.size}
+                                            viewCount={video.views}
+                                            onPlay={handleVideoClick}
+                                        />
+                                    </div>
+                                ))}
                             </div>
-
-                            <div className="flex-1 min-w-0">
-                                <h3 className="font-medium text-zinc-200 truncate group-hover:text-white transition-colors">
-                                    {item.name}
-                                </h3>
-                                {!item.isdir && (
-                                    <p className="mt-1 text-xs text-zinc-500 font-mono">
-                                        {item.size ? (item.size / 1024 / 1024).toFixed(1) + ' MB' : ''}
-                                    </p>
-                                )}
-                            </div>
-
-                            {!item.isdir && (
-                                <div className="absolute right-4 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400">
-                                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                                </div>
-                            )}
                         </div>
-                    ))}
+                    )}
+
+                    {/* 폴더 목록 */}
+                    {items.filter(item => item.isdir).length > 0 && (
+                        <div className="mb-8">
+                            <h2 className="text-lg font-semibold text-zinc-300 mb-4">📁 폴더</h2>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                                {items.filter(item => item.isdir).map((item) => (
+                                    <div
+                                        key={item.path}
+                                        onClick={() => handleFolderClick(item.path)}
+                                        className="group flex items-center gap-3 p-3 rounded-lg bg-zinc-900/40 border border-white/5 hover:bg-zinc-800/60 hover:border-blue-500/30 cursor-pointer transition-all"
+                                    >
+                                        <span className="text-2xl">📁</span>
+                                        <span className="text-sm font-medium text-zinc-300 truncate group-hover:text-white">
+                                            {item.name}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 영상 목록 (넷플릭스 스타일) */}
+                    {items.filter(item => !item.isdir).length > 0 && (
+                        <div>
+                            <h2 className="text-lg font-semibold text-zinc-300 mb-4">🎬 영상</h2>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {items.filter(item => !item.isdir).map((item) => (
+                                    <VideoCard
+                                        key={item.path}
+                                        name={item.name}
+                                        path={item.path}
+                                        size={item.size}
+                                        onPlay={handleVideoClick}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {items.length === 0 && (
-                        <div className="col-span-full py-12 text-center text-zinc-500">
+                        <div className="py-12 text-center text-zinc-500">
                             <p>No items found in this folder</p>
                         </div>
                     )}
-                </div>
+                </>
             )}
         </div>
     );
