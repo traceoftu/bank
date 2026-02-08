@@ -20,6 +20,7 @@ function FolderBrowserContent() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+    const [playingPath, setPlayingPath] = useState<string | null>(null);
 
     const fetchItems = async (path: string) => {
         setLoading(true);
@@ -66,13 +67,9 @@ function FolderBrowserContent() {
     };
 
     const handleVideoClick = (path: string) => {
-        // Direct stream since we are using valid SSL now
-        const synologyUrl = 'https://traceofsh.synology.me:5001';
-        // Note: For client-side direct play, we need the SID. 
-        // But the previous implementation (FolderBrowser.tsx) was fetching a proxied stream URL or using an API route that redirects.
-        // Let's stick to the API route '/api/videos/stream' which now redirects to the direct Synology URL.
         const streamApiUrl = `/api/videos/stream?path=${encodeURIComponent(path)}`;
         setPlayingUrl(streamApiUrl);
+        setPlayingPath(path);
     };
 
     return (
@@ -80,13 +77,27 @@ function FolderBrowserContent() {
             {playingUrl && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl bg-black/60 animate-in fade-in duration-200">
                     <div className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group">
-                        <button
-                            onClick={() => setPlayingUrl(null)}
-                            className="absolute top-4 right-4 z-50 flex items-center justify-center w-10 h-10 text-xl font-bold text-white transition-opacity bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer backdrop-blur-md"
-                            aria-label="Close video"
-                        >
-                            ✕
-                        </button>
+                        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <a
+                                href={`/api/videos/download?path=${encodeURIComponent(playingPath || '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center w-10 h-10 text-xl font-bold text-white transition-colors bg-zinc-800/50 hover:bg-blue-600/80 rounded-full cursor-pointer backdrop-blur-md"
+                                title="Download Video"
+                            >
+                                ⬇️
+                            </a>
+                            <button
+                                onClick={() => {
+                                    setPlayingUrl(null);
+                                    setPlayingPath(null);
+                                }}
+                                className="flex items-center justify-center w-10 h-10 text-xl font-bold text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
+                                aria-label="Close video"
+                            >
+                                ✕
+                            </button>
+                        </div>
                         <video
                             src={playingUrl}
                             controls
