@@ -15,6 +15,7 @@ function FolderBrowserContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const currentPath = searchParams.get('path') || '';
+    const searchQuery = searchParams.get('q') || '';
 
     const [items, setItems] = useState<FileItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -22,13 +23,18 @@ function FolderBrowserContent() {
     const [playingUrl, setPlayingUrl] = useState<string | null>(null);
     const [playingPath, setPlayingPath] = useState<string | null>(null);
 
-    const fetchItems = async (path: string) => {
+    const fetchItems = async (path: string, query: string) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get(`/api/videos/folders`, {
-                params: { path: path || undefined }
-            });
+            const params: any = {};
+            if (query) {
+                params.q = query;
+            } else if (path) {
+                params.path = path;
+            }
+            
+            const response = await axios.get(`/api/videos/folders`, { params });
             console.log('API Response:', response.data);
 
             if (response.data.data?.files) {
@@ -45,8 +51,8 @@ function FolderBrowserContent() {
     };
 
     useEffect(() => {
-        fetchItems(currentPath);
-    }, [currentPath]);
+        fetchItems(currentPath, searchQuery);
+    }, [currentPath, searchQuery]);
 
     const handleFolderClick = (path: string) => {
         router.push(`/?path=${encodeURIComponent(path)}`);
@@ -102,12 +108,18 @@ function FolderBrowserContent() {
             <div className="flex items-center justify-between mb-8">
                 <nav className="flex items-center text-sm font-medium text-zinc-400">
                     <span
-                        className={`cursor-pointer hover:text-white transition-colors ${!currentPath ? 'text-blue-400' : ''}`}
+                        className={`cursor-pointer hover:text-white transition-colors ${!currentPath && !searchQuery ? 'text-blue-400' : ''}`}
                         onClick={() => router.push('/')}
                     >
                         Root
                     </span>
-                    {currentPath && currentPath.split('/').map((part, index, arr) => {
+                    {searchQuery && (
+                        <span className="flex items-center">
+                            <span className="mx-2 text-zinc-600">/</span>
+                            <span className="text-blue-400">검색: "{searchQuery}"</span>
+                        </span>
+                    )}
+                    {!searchQuery && currentPath && currentPath.split('/').map((part, index, arr) => {
                         return (
                             <span key={index} className="flex items-center">
                                 <span className="mx-2 text-zinc-600">/</span>
