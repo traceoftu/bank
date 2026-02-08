@@ -80,28 +80,6 @@ function FolderBrowserContent() {
                         <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                                 onClick={() => {
-                                    if (playingPath) {
-                                        const encodedPath = playingPath.split('/').map(encodeURIComponent).join('/');
-                                        const url = `https://pub-cb95174e25324c44a23457198e4de7c5.r2.dev/${encodedPath}`;
-                                        const filename = playingPath.split('/').pop() || 'video.mp4';
-                                        
-                                        // Create a temporary link and trigger download
-                                        const link = document.createElement('a');
-                                        link.href = url;
-                                        link.download = filename;
-                                        link.target = '_blank';
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                    }
-                                }}
-                                className="flex items-center justify-center w-10 h-10 text-xl font-bold text-white transition-colors bg-zinc-800/50 hover:bg-blue-600/80 rounded-full cursor-pointer backdrop-blur-md"
-                                title="Download Video"
-                            >
-                                ⬇️
-                            </button>
-                            <button
-                                onClick={() => {
                                     setPlayingUrl(null);
                                     setPlayingPath(null);
                                 }}
@@ -115,7 +93,6 @@ function FolderBrowserContent() {
                             src={playingUrl}
                             controls
                             autoPlay
-                            controlsList="nodownload"
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"
                         />
                     </div>
