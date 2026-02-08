@@ -131,7 +131,7 @@ function FolderBrowserContent() {
                         className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+                        <div className={`absolute top-4 right-4 z-50 flex items-center gap-2 transition-opacity ${isIOS ? '' : 'opacity-0 group-hover:opacity-100'}`}>
                             {/* iOS 전용 다운로드 버튼 */}
                             {isIOS && playingPath && (
                                 <a
