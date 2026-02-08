@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Church Video",
-  description: "Church Video Application",
+  title: "JBCH Word Bank",
+  description: "Church video archive powered by Next.js & Synology",
 };
 
 export default function RootLayout({
@@ -30,7 +30,7 @@ export default function RootLayout({
         <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-zinc-950/70 border-b border-white/5">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-              Church Video Archive
+              JBCH Word Bank
             </h1>
             {/* Placeholder for future nav or search */}
             <div className="w-8 h-8 rounded-full bg-zinc-800/50 flex items-center justify-center text-xs text-zinc-500">
@@ -42,7 +42,7 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="py-8 border-t border-white/5 text-center text-sm text-zinc-500">
-          <p>© {new Date().getFullYear()} Church Video Archive</p>
+          <p>© {new Date().getFullYear()} JBCH Word Bank</p>
           <p className="mt-1 text-xs text-zinc-600">Powered by Next.js & Synology</p>
         </footer>
       </body>
