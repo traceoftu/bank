@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
-const R2_PUBLIC_URL = 'https://pub-cb95174e25324c44a23457198e4de7c5.r2.dev';
+const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
