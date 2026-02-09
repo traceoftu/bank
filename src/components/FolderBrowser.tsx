@@ -24,6 +24,7 @@ function FolderBrowserContent() {
     const searchParams = useSearchParams();
     const currentPath = searchParams.get('path') || '';
     const searchQuery = searchParams.get('q') || '';
+    const playParam = searchParams.get('play') || '';
 
     const [items, setItems] = useState<FileItem[]>([]);
     const [popularVideos, setPopularVideos] = useState<PopularVideo[]>([]);
@@ -38,6 +39,19 @@ function FolderBrowserContent() {
         const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         setIsIOS(checkIOS);
     }, []);
+
+    // 공유 링크로 접속 시 자동 재생
+    useEffect(() => {
+        if (playParam) {
+            const streamApiUrl = `/api/videos/stream?path=${encodeURIComponent(playParam)}`;
+            setPlayingUrl(streamApiUrl);
+            setPlayingPath(playParam);
+            // 조회수 증가
+            axios.post('/api/videos/views', { path: playParam }).catch(console.error);
+            // URL에서 play 파라미터 제거
+            router.replace('/', { scroll: false });
+        }
+    }, [playParam]);
 
     const fetchItems = async (path: string, query: string) => {
         setLoading(true);
@@ -132,6 +146,36 @@ function FolderBrowserContent() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className={`absolute top-4 right-4 z-50 flex items-center gap-2 transition-opacity ${isIOS ? '' : 'opacity-0 group-hover:opacity-100'}`}>
+                            {/* 공유 버튼 */}
+                            {playingPath && (
+                                <button
+                                    onClick={async () => {
+                                        const videoName = playingPath.split('/').pop() || '영상';
+                                        const shareUrl = `${window.location.origin}/?play=${encodeURIComponent(playingPath)}`;
+                                        
+                                        if (navigator.share) {
+                                            try {
+                                                await navigator.share({
+                                                    title: videoName,
+                                                    text: `${videoName} - JBCH Word Bank`,
+                                                    url: shareUrl,
+                                                });
+                                            } catch (err) {
+                                                console.log('Share cancelled');
+                                            }
+                                        } else {
+                                            await navigator.clipboard.writeText(shareUrl);
+                                            alert('링크가 복사되었습니다!');
+                                        }
+                                    }}
+                                    className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
+                                    aria-label="Share video"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                    </svg>
+                                </button>
+                            )}
                             {/* iOS 전용 다운로드 버튼 */}
                             {isIOS && playingPath && (
                                 <a
