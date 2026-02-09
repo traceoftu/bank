@@ -153,15 +153,23 @@ function FolderBrowserContent() {
                                         const videoName = playingPath.split('/').pop() || '영상';
                                         const shareUrl = `${window.location.origin}/?play=${encodeURIComponent(playingPath)}`;
                                         
-                                        if (navigator.share) {
+                                        // Web Share API 지원 및 사용 가능 여부 확인
+                                        const canShare = typeof navigator.share === 'function' && 
+                                            (typeof navigator.canShare !== 'function' || navigator.canShare({ url: shareUrl }));
+                                        
+                                        if (canShare) {
                                             try {
                                                 await navigator.share({
                                                     title: videoName,
                                                     text: `${videoName} - JBCH Word Bank`,
                                                     url: shareUrl,
                                                 });
-                                            } catch (err) {
-                                                console.log('Share cancelled');
+                                            } catch (err: any) {
+                                                // 사용자가 취소한 경우가 아니면 클립보드로 폴백
+                                                if (err.name !== 'AbortError') {
+                                                    await navigator.clipboard.writeText(shareUrl);
+                                                    alert('링크가 복사되었습니다!');
+                                                }
                                             }
                                         } else {
                                             await navigator.clipboard.writeText(shareUrl);
