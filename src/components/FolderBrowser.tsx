@@ -276,13 +276,13 @@ function FolderBrowserContent() {
                             <h2 className="text-xl font-bold text-white mb-6">
                                 오늘의 TOP 10
                             </h2>
-                            <div className="flex gap-2 overflow-x-auto overflow-y-hidden pb-4 scrollbar-hide">
+                            <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-4 scrollbar-hide">
                                 {popularVideos.map((video, index) => (
                                     <div key={video.path} className="relative flex-shrink-0 flex items-end">
                                         {/* 큰 순위 숫자 */}
-                                        <div className="relative z-0 flex items-end justify-center w-16 sm:w-20">
+                                        <div className="relative z-0 flex items-end justify-center w-12 sm:w-16">
                                             <span 
-                                                className="text-[80px] sm:text-[100px] font-black leading-none select-none"
+                                                className="text-[100px] sm:text-[140px] font-black leading-none select-none"
                                                 style={{
                                                     color: 'transparent',
                                                     WebkitTextStroke: '3px #404040',
@@ -293,7 +293,7 @@ function FolderBrowserContent() {
                                             </span>
                                         </div>
                                         {/* 영상 카드 */}
-                                        <div className="relative z-10 w-24 sm:w-28 -ml-4">
+                                        <div className="relative z-10 w-32 sm:w-40 -ml-3">
                                             <VideoCard
                                                 name={video.name}
                                                 path={video.path}
