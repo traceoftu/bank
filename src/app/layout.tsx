@@ -4,6 +4,7 @@ import "./globals.css";
 
 import Link from "next/link";
 import SearchHeader from "@/components/SearchHeader";
+import AdBanner from "@/components/AdBanner";
 import { Suspense } from "react";
 
 const geistSans = Geist({
@@ -35,7 +36,7 @@ export default function RootLayout({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <Link href="/" className="hover:opacity-80 transition-opacity">
               <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                JBCH Word Bank
+                JBCH Word of Life Hub
               </h1>
             </Link>
             <Suspense fallback={<div className="w-8 h-8 rounded-full bg-zinc-800/50" />}>
@@ -46,8 +47,9 @@ export default function RootLayout({
         <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
         </main>
+        <AdBanner />
         <footer className="py-8 border-t border-white/5 text-center text-sm text-zinc-500">
-          <p>© {new Date().getFullYear()} JBCH Word Bank</p>
+          <p>© {new Date().getFullYear()} JBCH Word of Life Hub</p>
           <p className="mt-1 text-xs text-zinc-600">Designed & Developed by haebomsoft</p>
         </footer>
       </body>

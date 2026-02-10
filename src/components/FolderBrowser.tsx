@@ -243,7 +243,7 @@ function FolderBrowserContent() {
                                             try {
                                                 await navigator.share({
                                                     title: videoName,
-                                                    text: `${videoName} - JBCH Word Bank`,
+                                                    text: `${videoName} - JBCH Word of Life Hub`,
                                                     url: shareUrl,
                                                 });
                                             } catch (err: any) {
