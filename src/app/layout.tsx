@@ -5,6 +5,7 @@ import "./globals.css";
 import Link from "next/link";
 import SearchHeader from "@/components/SearchHeader";
 import AdBanner from "@/components/AdBanner";
+import PWAInstall from "@/components/PWAInstall";
 import { Suspense } from "react";
 
 const geistSans = Geist({
@@ -20,6 +21,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "JBCH Word of Life Hub",
   description: "Church video archive designed and developed by haebomsoft",
+  manifest: "/manifest.json",
+  themeColor: "#09090b",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "JBCH Hub",
+  },
+  icons: {
+    icon: "/icons/icon.svg",
+    apple: "/icons/icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -48,6 +60,7 @@ export default function RootLayout({
           {children}
         </main>
         <AdBanner />
+        <PWAInstall />
         <footer className="py-8 border-t border-white/5 text-center text-sm text-zinc-500">
           <p>© {new Date().getFullYear()} JBCH Word of Life Hub</p>
           <p className="mt-1 text-xs text-zinc-600">Designed & Developed by haebomsoft</p>
