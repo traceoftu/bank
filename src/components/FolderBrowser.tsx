@@ -25,14 +25,8 @@ interface CategoryVideos {
     videos: PopularVideo[];
 }
 
-const CATEGORIES = [
-    { name: '성인', path: '성인' },
-    { name: '은장회', path: '은장회' },
-    { name: '청년회', path: '청년회' },
-    { name: '중고등부', path: '중고등부' },
-    { name: '초등부', path: '초등부' },
-    { name: '생활&특별&기타', path: '생활&특별&기타' },
-];
+// 카테고리 표시 순서 (이 목록에 없는 폴더는 마지막에 가나다순으로 표시)
+const CATEGORY_ORDER = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
 
 function CategoryRow({ category, path, videos, onVideoClick, onHeaderClick }: {
     category: string;
@@ -150,18 +144,32 @@ function FolderBrowserContent() {
                 setPopularVideos(popularRes.data.data.videos);
             }
 
-            // Categories
+            // 루트 폴더 목록 가져오기 (자동 감지)
+            const foldersRes = await axios.get('/api/videos/folders');
+            const folders = foldersRes.data.data?.files?.filter((f: FileItem) => f.isdir) || [];
+            
+            // 폴더 정렬: CATEGORY_ORDER 순서대로, 나머지는 가나다순
+            const sortedFolders = [...folders].sort((a: FileItem, b: FileItem) => {
+                const indexA = CATEGORY_ORDER.indexOf(a.name);
+                const indexB = CATEGORY_ORDER.indexOf(b.name);
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            // 각 폴더별 인기 영상 가져오기
             const categoryResults = await Promise.all(
-                CATEGORIES.map(async (cat) => {
+                sortedFolders.map(async (folder: FileItem) => {
                     try {
-                        const res = await axios.get(`/api/videos/popular?path=${encodeURIComponent(cat.path)}`);
+                        const res = await axios.get(`/api/videos/popular?path=${encodeURIComponent(folder.name)}`);
                         return {
-                            category: cat.name,
-                            path: cat.path,
+                            category: folder.name,
+                            path: folder.name,
                             videos: res.data.data?.videos || []
                         };
                     } catch (e) {
-                        return { category: cat.name, path: cat.path, videos: [] };
+                        return { category: folder.name, path: folder.name, videos: [] };
                     }
                 })
             );
