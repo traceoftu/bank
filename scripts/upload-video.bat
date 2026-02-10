@@ -51,7 +51,7 @@ echo      썸네일 생성 완료: %THUMB_FILE%
 
 REM 2. 영상 업로드
 echo [2/3] 영상 업로드 중...
-rclone copy "%VIDEO%" "r2:jbchbank/%REMOTE_PATH%/" --progress
+rclone copy "%VIDEO%" "r2:jbch-word-bank-videos/%REMOTE_PATH%/" --progress
 
 if errorlevel 1 (
     echo [오류] 영상 업로드 실패
@@ -61,7 +61,7 @@ echo      영상 업로드 완료
 
 REM 3. 썸네일 업로드 (thumbnails 폴더에 저장)
 echo [3/3] 썸네일 업로드 중...
-rclone copyto "%THUMB_FILE%" "r2:jbchbank/thumbnails/%REMOTE_PATH%/%FILENAME%.jpg" --progress
+rclone copyto "%THUMB_FILE%" "r2:jbch-word-bank-videos/thumbnails/%REMOTE_PATH%/%FILENAME%.jpg" --progress
 
 if errorlevel 1 (
     echo [오류] 썸네일 업로드 실패

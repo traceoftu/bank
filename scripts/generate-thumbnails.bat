@@ -24,7 +24,7 @@ if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
 
 REM R2에서 영상 목록 가져오기
 echo [1/3] R2에서 영상 목록 가져오는 중...
-rclone lsf r2:jbchbank --recursive --include "*.mp4" --include "*.mov" --include "*.avi" --include "*.mkv" --include "*.webm" > "%TEMP_DIR%\videos.txt"
+rclone lsf r2:jbch-word-bank-videos --recursive --include "*.mp4" --include "*.mov" --include "*.avi" --include "*.mkv" --include "*.webm" > "%TEMP_DIR%\videos.txt"
 
 REM 영상 개수 확인
 for /f %%a in ('type "%TEMP_DIR%\videos.txt" ^| find /c /v ""') do set COUNT=%%a
@@ -41,7 +41,7 @@ for /f "usebackq delims=" %%f in ("%TEMP_DIR%\videos.txt") do (
     set "THUMB_PATH=thumbnails/%%f.jpg"
     
     REM 이미 썸네일이 있는지 확인
-    rclone lsf "r2:jbchbank/!THUMB_PATH!" >nul 2>&1
+    rclone lsf "r2:jbch-word-bank-videos/!THUMB_PATH!" >nul 2>&1
     if !errorlevel! equ 0 (
         echo [!CURRENT!/%COUNT%] [건너뜀] %%f - 썸네일 존재
         set /a SKIPPED+=1
@@ -52,7 +52,7 @@ for /f "usebackq delims=" %%f in ("%TEMP_DIR%\videos.txt") do (
         set "LOCAL_VIDEO=%TEMP_DIR%\temp_video"
         set "LOCAL_THUMB=%TEMP_DIR%\temp_thumb.jpg"
         
-        rclone copy "r2:jbchbank/%%f" "%TEMP_DIR%" -q
+        rclone copy "r2:jbch-word-bank-videos/%%f" "%TEMP_DIR%" -q
         
         REM 파일명 추출
         for %%n in ("%%f") do set "FILENAME=%%~nxn"
@@ -62,7 +62,7 @@ for /f "usebackq delims=" %%f in ("%TEMP_DIR%\videos.txt") do (
         
         if exist "!LOCAL_THUMB!" (
             REM 썸네일 업로드
-            rclone copyto "!LOCAL_THUMB!" "r2:jbchbank/!THUMB_PATH!" -q
+            rclone copyto "!LOCAL_THUMB!" "r2:jbch-word-bank-videos/!THUMB_PATH!" -q
             echo      [완료]
             set /a SUCCESS+=1
             

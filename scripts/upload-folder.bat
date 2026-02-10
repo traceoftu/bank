@@ -64,10 +64,10 @@ for %%f in ("%LOCAL_FOLDER%\*.mp4" "%LOCAL_FOLDER%\*.mov" "%LOCAL_FOLDER%\*.avi"
         set /a FAILED+=1
     ) else (
         REM 영상 업로드
-        rclone copy "%%f" "r2:jbchbank/%REMOTE_PATH%/" -q
+        rclone copy "%%f" "r2:jbch-word-bank-videos/%REMOTE_PATH%/" -q
         
         REM 썸네일 업로드
-        rclone copyto "!THUMB_FILE!" "r2:jbchbank/thumbnails/%REMOTE_PATH%/%%~nxf.jpg" -q
+        rclone copyto "!THUMB_FILE!" "r2:jbch-word-bank-videos/thumbnails/%REMOTE_PATH%/%%~nxf.jpg" -q
         
         del "!THUMB_FILE!" 2>nul
         
