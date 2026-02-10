@@ -13,41 +13,16 @@ interface VideoCardProps {
 
 const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
 
-// 카테고리별 그라데이션 색상
-const CATEGORY_COLORS: { [key: string]: string } = {
-    '성인': 'from-blue-900/80 to-blue-950',
-    '은장회': 'from-purple-900/80 to-purple-950',
-    '청년회': 'from-green-900/80 to-green-950',
-    '중고등부': 'from-orange-900/80 to-orange-950',
-    '초등부': 'from-pink-900/80 to-pink-950',
-    '생활&특별&기타': 'from-teal-900/80 to-teal-950',
-};
-
-function getCategoryColor(path: string): string {
-    const category = path.split('/')[0];
-    return CATEGORY_COLORS[category] || 'from-zinc-800 to-zinc-900';
-}
-
 export default function VideoCard({ name, path, size, viewCount, onPlay, vertical = false }: VideoCardProps) {
-    const [isMobile, setIsMobile] = useState(true); // 기본값 모바일 (SSR 대응)
     const [isVisible, setIsVisible] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
 
     const encodedPath = path.split('/').map(encodeURIComponent).join('/');
     const videoUrl = `${R2_PUBLIC_URL}/${encodedPath}`;
-    const categoryColor = getCategoryColor(path);
 
-    // 모바일 감지
+    // Intersection Observer로 화면에 보일 때만 로드
     useEffect(() => {
-        const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        setIsMobile(checkMobile);
-    }, []);
-
-    // Intersection Observer로 화면에 보일 때만 로드 (PC만)
-    useEffect(() => {
-        if (isMobile) return; // 모바일은 video 로드 안 함
-
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (entry.isIntersecting) {
@@ -55,7 +30,7 @@ export default function VideoCard({ name, path, size, viewCount, onPlay, vertica
                     observer.disconnect();
                 }
             },
-            { rootMargin: '100px' }
+            { rootMargin: '50px', threshold: 0.1 }
         );
 
         if (cardRef.current) {
@@ -63,7 +38,7 @@ export default function VideoCard({ name, path, size, viewCount, onPlay, vertica
         }
 
         return () => observer.disconnect();
-    }, [isMobile]);
+    }, []);
 
     return (
         <div
@@ -71,19 +46,19 @@ export default function VideoCard({ name, path, size, viewCount, onPlay, vertica
             className={`group relative rounded-xl overflow-hidden cursor-pointer bg-zinc-900 border border-white/5 hover:border-white/20 hover:scale-105 hover:z-10 transition-all duration-300 hover:shadow-2xl hover:shadow-black/50 ${vertical ? 'aspect-[2/3]' : 'aspect-video'}`}
             onClick={() => onPlay(path)}
         >
-            {/* 모바일: 카테고리별 색상 플레이스홀더 / PC: video 로딩 전 플레이스홀더 */}
-            {(isMobile || !isLoaded) && (
-                <div className={`absolute inset-0 bg-gradient-to-br ${categoryColor} flex items-center justify-center`}>
-                    <div className="w-12 h-12 rounded-full bg-black/30 flex items-center justify-center backdrop-blur-sm">
-                        <svg className="w-6 h-6 text-white/70" fill="currentColor" viewBox="0 0 24 24">
+            {/* 로딩 전 플레이스홀더 */}
+            {!isLoaded && (
+                <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-zinc-700/50 flex items-center justify-center animate-pulse">
+                        <svg className="w-6 h-6 text-zinc-500" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                         </svg>
                     </div>
                 </div>
             )}
 
-            {/* PC만: 첫 프레임 이미지 (Lazy Load) */}
-            {!isMobile && isVisible && (
+            {/* 첫 프레임 이미지 (Lazy Load) */}
+            {isVisible && (
                 <video
                     src={`${videoUrl}#t=0.1`}
                     muted
