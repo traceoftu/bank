@@ -69,13 +69,6 @@ export default function AdBanner() {
                         </div>
                     </div>
                 </a>
-                
-                {/* 안내 문구 */}
-                <div className="bg-zinc-800/50 px-6 py-3 border-t border-white/5">
-                    <p className="text-xs text-zinc-500 text-center">
-                        💝 이 사이트는 무료로 운영됩니다. 구매 및 리뷰를 남겨주시면 서비스 유지에 큰 도움이 됩니다.
-                    </p>
-                </div>
             </div>
         </div>
     );
