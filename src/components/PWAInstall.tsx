@@ -10,6 +10,7 @@ interface BeforeInstallPromptEvent extends Event {
 export default function PWAInstall() {
     const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
     const [showInstall, setShowInstall] = useState(false);
+    const [isIOS, setIsIOS] = useState(false);
 
     useEffect(() => {
         // Service Worker 등록
@@ -17,7 +18,16 @@ export default function PWAInstall() {
             navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
 
-        // 설치 프롬프트 이벤트 캡처
+        // iOS 감지
+        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream;
+        const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
+        
+        if (isIOSDevice && !isInStandaloneMode) {
+            setIsIOS(true);
+            setShowInstall(true);
+        }
+
+        // 설치 프롬프트 이벤트 캡처 (Android/Chrome)
         const handleBeforeInstall = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -71,7 +81,11 @@ export default function PWAInstall() {
                     </div>
                     <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-semibold text-white">앱 설치하기</h3>
-                        <p className="text-xs text-zinc-400 mt-0.5">홈 화면에 추가하여 더 빠르게 접속하세요</p>
+                        <p className="text-xs text-zinc-400 mt-0.5">
+                            {isIOS 
+                                ? '공유 버튼 → "홈 화면에 추가"를 눌러주세요' 
+                                : '홈 화면에 추가하여 더 빠르게 접속하세요'}
+                        </p>
                     </div>
                     <button
                         onClick={handleDismiss}
@@ -82,12 +96,14 @@ export default function PWAInstall() {
                         </svg>
                     </button>
                 </div>
-                <button
-                    onClick={handleInstall}
-                    className="w-full mt-3 py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
-                >
-                    설치
-                </button>
+                {!isIOS && (
+                    <button
+                        onClick={handleInstall}
+                        className="w-full mt-3 py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
+                    >
+                        설치
+                    </button>
+                )}
             </div>
         </div>
     );
