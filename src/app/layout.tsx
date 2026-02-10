@@ -29,8 +29,8 @@ export const metadata: Metadata = {
     title: "JBCH Hub",
   },
   icons: {
-    icon: "/icons/icon.svg",
-    apple: "/icons/icon.svg",
+    icon: "/icons/icon-192x192.png",
+    apple: "/icons/icon-192x192.png",
   },
 };
 
