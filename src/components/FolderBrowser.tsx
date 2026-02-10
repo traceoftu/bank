@@ -31,7 +31,7 @@ const CATEGORIES = [
     { name: '청년회', path: '청년회' },
     { name: '중고등부', path: '중고등부' },
     { name: '초등부', path: '초등부' },
-    { name: '생활&특별집회&기타', path: '생활&특별집회&기타' },
+    { name: '생활&특별&기타', path: '생활&특별&기타' },
 ];
 
 function CategoryRow({ category, path, videos, onVideoClick, onHeaderClick }: {
@@ -119,7 +119,7 @@ function FolderBrowserContent() {
 
             if (response.data.data?.files) {
                 // 특정 순서로 폴더 정렬
-                const priority = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별집회&기타'];
+                const priority = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
                 const sortedFiles = [...response.data.data.files].sort((a, b) => {
                     if (a.isdir && b.isdir) {
                         const indexA = priority.indexOf(a.name);
