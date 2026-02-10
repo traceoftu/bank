@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "JBCH Word Bank",
-  description: "Church video archive powered by Next.js & Synology",
+  description: "Church video archive designed and developed by haebomsoft",
 };
 
 export default function RootLayout({
@@ -48,7 +48,7 @@ export default function RootLayout({
         </main>
         <footer className="py-8 border-t border-white/5 text-center text-sm text-zinc-500">
           <p>© {new Date().getFullYear()} JBCH Word Bank</p>
-          <p className="mt-1 text-xs text-zinc-600">Powered by Next.js & Synology</p>
+          <p className="mt-1 text-xs text-zinc-600">Designed & Developed by haebomsoft</p>
         </footer>
       </body>
     </html>
