@@ -13,6 +13,12 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 
+# Windows에서 subprocess 콘솔 창 숨기기
+if sys.platform == 'win32':
+    SUBPROCESS_FLAGS = subprocess.CREATE_NO_WINDOW
+else:
+    SUBPROCESS_FLAGS = 0
+
 # 설정
 R2_BUCKET = "r2:jbch-word-bank-videos"
 R2_PUBLIC_URL = "https://videos.haebomsoft.com"
@@ -183,7 +189,8 @@ class UploaderApp:
         try:
             result = subprocess.run(
                 ["rclone", "lsf", R2_BUCKET, "--dirs-only"],
-                capture_output=True, text=True, encoding='utf-8'
+                capture_output=True, text=True, encoding='utf-8',
+                creationflags=SUBPROCESS_FLAGS
             )
             if result.returncode == 0:
                 folders = [f.rstrip('/') for f in result.stdout.strip().split('\n') if f]
@@ -204,7 +211,8 @@ class UploaderApp:
         try:
             result = subprocess.run(
                 ["rclone", "lsf", f"{R2_BUCKET}/{category}", "--dirs-only", "-R"],
-                capture_output=True, text=True, encoding='utf-8'
+                capture_output=True, text=True, encoding='utf-8',
+                creationflags=SUBPROCESS_FLAGS
             )
             if result.returncode == 0:
                 subfolders = [f.rstrip('/') for f in result.stdout.strip().split('\n') if f]
@@ -289,7 +297,8 @@ class UploaderApp:
                 self.log(f"[{i+1}/{total}] {filename} 업로드 중...")
                 result = subprocess.run(
                     ["rclone", "copy", file_path, f"{R2_BUCKET}/{upload_path}/"],
-                    capture_output=True, text=True, encoding='utf-8'
+                    capture_output=True, text=True, encoding='utf-8',
+                    creationflags=SUBPROCESS_FLAGS
                 )
                 
                 if result.returncode != 0:
@@ -306,7 +315,8 @@ class UploaderApp:
                     ffmpeg_result = subprocess.run(
                         ["ffmpeg", "-y", "-i", file_path, "-ss", "00:00:01", 
                          "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_path],
-                        capture_output=True, text=True, encoding='utf-8'
+                        capture_output=True, text=True, encoding='utf-8',
+                        creationflags=SUBPROCESS_FLAGS
                     )
                     
                     if os.path.exists(thumb_path):
@@ -314,7 +324,8 @@ class UploaderApp:
                         thumb_result = subprocess.run(
                             ["rclone", "copyto", thumb_path, 
                              f"{R2_BUCKET}/thumbnails/{upload_path}/{filename}.jpg"],
-                            capture_output=True, text=True, encoding='utf-8'
+                            capture_output=True, text=True, encoding='utf-8',
+                            creationflags=SUBPROCESS_FLAGS
                         )
                         
                         if thumb_result.returncode == 0:
