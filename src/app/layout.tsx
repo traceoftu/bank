@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JBCH Word Bank",
+  title: "JBCH Word of Life Hub",
   description: "Church video archive designed and developed by haebomsoft",
 };
 

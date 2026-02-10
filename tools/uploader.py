@@ -297,12 +297,12 @@ class UploaderApp:
                 self.log(f"[{i+1}/{total}] {filename} 업로드 중...")
                 result = subprocess.run(
                     ["rclone", "copy", file_path, f"{R2_BUCKET}/{upload_path}/"],
-                    capture_output=True, text=True, encoding='utf-8',
+                    capture_output=True, text=False,
                     creationflags=SUBPROCESS_FLAGS
                 )
                 
                 if result.returncode != 0:
-                    self.log(f"  ❌ 업로드 실패: {result.stderr}")
+                    self.log(f"  ❌ 업로드 실패")
                     failed += 1
                     continue
                 
@@ -315,16 +315,16 @@ class UploaderApp:
                     ffmpeg_result = subprocess.run(
                         ["ffmpeg", "-y", "-i", file_path, "-ss", "00:00:01", 
                          "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_path],
-                        capture_output=True, text=True, encoding='utf-8',
+                        capture_output=True, text=False,
                         creationflags=SUBPROCESS_FLAGS
                     )
                     
                     if os.path.exists(thumb_path):
                         # 썸네일 업로드
+                        remote_thumb_path = f"{R2_BUCKET}/thumbnails/{upload_path}/{filename}.jpg"
                         thumb_result = subprocess.run(
-                            ["rclone", "copyto", thumb_path, 
-                             f"{R2_BUCKET}/thumbnails/{upload_path}/{filename}.jpg"],
-                            capture_output=True, text=True, encoding='utf-8',
+                            ["rclone", "copyto", thumb_path, remote_thumb_path],
+                            capture_output=True, text=False,
                             creationflags=SUBPROCESS_FLAGS
                         )
                         
