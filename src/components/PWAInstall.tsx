@@ -18,16 +18,29 @@ export default function PWAInstall() {
             navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
 
-        // iOS 감지
-        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream;
-        const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
-        
-        if (isIOSDevice && !isInStandaloneMode) {
-            setIsIOS(true);
-            setShowInstall(true);
+        // 24시간 내에 닫았으면 표시하지 않음
+        const dismissed = localStorage.getItem('pwa-dismissed');
+        if (dismissed) {
+            const dismissedTime = parseInt(dismissed);
+            if (Date.now() - dismissedTime < 24 * 60 * 60 * 1000) {
+                return; // 24시간 내에 닫았으면 아무것도 표시하지 않음
+            }
         }
 
-        // 설치 프롬프트 이벤트 캡처 (Android/Chrome)
+        // 이미 standalone 모드면 표시하지 않음
+        const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
+        if (isInStandaloneMode) return;
+
+        // iOS 감지
+        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream;
+        
+        if (isIOSDevice) {
+            setIsIOS(true);
+            setShowInstall(true);
+            return;
+        }
+
+        // 설치 프롬프트 이벤트 캡처 (Android/Chrome/Windows)
         const handleBeforeInstall = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -58,17 +71,6 @@ export default function PWAInstall() {
         // 24시간 동안 다시 표시하지 않음
         localStorage.setItem('pwa-dismissed', Date.now().toString());
     };
-
-    // 이미 설치되었거나 최근에 닫았으면 표시하지 않음
-    useEffect(() => {
-        const dismissed = localStorage.getItem('pwa-dismissed');
-        if (dismissed) {
-            const dismissedTime = parseInt(dismissed);
-            if (Date.now() - dismissedTime < 24 * 60 * 60 * 1000) {
-                setShowInstall(false);
-            }
-        }
-    }, []);
 
     if (!showInstall) return null;
 
