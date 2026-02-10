@@ -1,21 +1,14 @@
 const sharp = require('sharp');
-const fs = require('fs');
 const path = require('path');
 
 const sizes = [192, 512];
 const iconDir = path.join(__dirname, '../public/icons');
-
-// SVG 내용
-const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="64" fill="#09090b"/>
-  <text x="256" y="300" font-family="Arial, sans-serif" font-size="180" font-weight="bold" fill="#60a5fa" text-anchor="middle">J</text>
-  <circle cx="256" cy="380" r="8" fill="#22d3ee"/>
-</svg>`;
+const logoPath = path.join(iconDir, 'logo.png');
 
 async function generateIcons() {
     for (const size of sizes) {
         const outputPath = path.join(iconDir, `icon-${size}x${size}.png`);
-        await sharp(Buffer.from(svgContent))
+        await sharp(logoPath)
             .resize(size, size)
             .png()
             .toFile(outputPath);
