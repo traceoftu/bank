@@ -18,7 +18,9 @@ export default function AdBanner() {
     useEffect(() => {
         const loadConfig = async () => {
             try {
-                const res = await fetch(`${R2_PUBLIC_URL}/ads/config.json`);
+                // API를 통해 config 로드 (CORS 우회)
+                const res = await fetch('/api/ads');
+                if (!res.ok) throw new Error('Not found');
                 const data = await res.json() as AdConfig;
                 setConfig(data);
             } catch {
