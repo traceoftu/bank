@@ -6,10 +6,9 @@ const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
 
 export async function GET() {
     try {
-        const res = await fetch(`${R2_PUBLIC_URL}/ads/config.json`, {
-            headers: {
-                'Cache-Control': 'no-cache'
-            }
+        // 캐시 우회를 위해 타임스탬프 추가
+        const res = await fetch(`${R2_PUBLIC_URL}/ads/config.json?t=${Date.now()}`, {
+            cache: 'no-store'
         });
         
         if (!res.ok) {
@@ -17,7 +16,13 @@ export async function GET() {
         }
         
         const data = await res.json();
-        return NextResponse.json(data);
+        
+        // 응답에도 캐시 비활성화 헤더 추가
+        return NextResponse.json(data, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate',
+            }
+        });
     } catch {
         return NextResponse.json({ error: 'Failed to load ads config' }, { status: 500 });
     }
