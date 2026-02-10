@@ -15,12 +15,10 @@ const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
 
 export default function VideoCard({ name, path, size, viewCount, onPlay, vertical = false }: VideoCardProps) {
     const [isVisible, setIsVisible] = useState(false);
-    const [thumbError, setThumbError] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
 
     const encodedPath = path.split('/').map(encodeURIComponent).join('/');
-    const videoUrl = `${R2_PUBLIC_URL}/${encodedPath}`;
     const thumbUrl = `${R2_PUBLIC_URL}/thumbnails/${encodedPath}.jpg`;
 
     // Intersection Observer로 화면에 보일 때만 로드
@@ -59,25 +57,13 @@ export default function VideoCard({ name, path, size, viewCount, onPlay, vertica
                 </div>
             )}
 
-            {/* 썸네일 이미지 우선 시도, 없으면 video 태그로 폴백 */}
-            {isVisible && !thumbError && (
+            {/* 썸네일 이미지 */}
+            {isVisible && (
                 <img
                     src={thumbUrl}
                     alt={name}
+                    loading="lazy"
                     onLoad={() => setIsLoaded(true)}
-                    onError={() => setThumbError(true)}
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-                />
-            )}
-
-            {/* 썸네일 없으면 video 태그로 폴백 */}
-            {isVisible && thumbError && (
-                <video
-                    src={`${videoUrl}#t=0.1`}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    onLoadedData={() => setIsLoaded(true)}
                     className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                 />
             )}
