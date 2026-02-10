@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 
 interface AdConfig {
-    imageUrl: string;
+    imageUrl?: string;
     linkUrl: string;
     title: string;
     description: string;
+    version?: string;
 }
 
 const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
@@ -45,7 +46,7 @@ export default function AdBanner() {
                         {/* 이미지 */}
                         <div className="w-full md:w-1/3 flex-shrink-0">
                             <img
-                                src={config.imageUrl || `${R2_PUBLIC_URL}/ads/banner.jpg`}
+                                src={`${R2_PUBLIC_URL}/ads/banner.jpg${config.version ? `?v=${config.version}` : ''}`}
                                 alt={config.title}
                                 onLoad={() => setIsLoaded(true)}
                                 className={`w-full h-auto rounded-xl object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
