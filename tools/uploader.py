@@ -33,7 +33,7 @@ class UploaderApp:
     def __init__(self, root):
         self.root = root
         self.root.title("JBCH Word Bank 영상 업로더")
-        self.root.geometry("700x500")
+        self.root.geometry("700x600")
         self.root.resizable(True, True)
         
         self.selected_files = []
@@ -46,6 +46,14 @@ class UploaderApp:
         # 메인 프레임
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # === 상단 헤더 (업로드 버튼 포함) ===
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(header_frame, text="JBCH Word Bank 영상 업로더", font=("", 12, "bold")).pack(side=tk.LEFT)
+        self.upload_btn = ttk.Button(header_frame, text="🚀 업로드 시작", command=self.start_upload)
+        self.upload_btn.pack(side=tk.RIGHT, ipadx=20, ipady=5)
         
         # === 파일 선택 섹션 ===
         file_frame = ttk.LabelFrame(main_frame, text="1. 업로드할 파일/폴더 선택", padding="10")
@@ -124,10 +132,6 @@ class UploaderApp:
         
         log_scrollbar = ttk.Scrollbar(progress_frame, orient=tk.VERTICAL, command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=log_scrollbar.set)
-        
-        # === 업로드 버튼 ===
-        self.upload_btn = ttk.Button(main_frame, text="🚀 업로드 시작", command=self.start_upload)
-        self.upload_btn.pack(fill=tk.X, ipady=10)
         
         # 이벤트 바인딩
         self.category_combo.bind("<KeyRelease>", lambda e: self.update_path_label())
