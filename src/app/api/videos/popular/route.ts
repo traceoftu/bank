@@ -10,21 +10,27 @@ export async function GET(request: NextRequest) {
         const { env } = getRequestContext();
         const kv = (env as any).VIEWS as KVNamespace;
 
+        const searchParams = request.nextUrl.searchParams;
+        const prefix = searchParams.get('path') || '';
+
         // Get all videos from R2
         const allFiles: { path: string; name: string; size: number; views: number }[] = [];
-        
+
         // List all files recursively
         const bucket = (env as any).VIDEOS as R2Bucket;
         let cursor: string | undefined;
 
         do {
-            const listed = await bucket.list({ cursor });
+            const listed = await bucket.list({
+                cursor,
+                prefix: prefix || undefined
+            });
 
             for (const object of listed.objects) {
                 if (!object.key.endsWith('/') && /\.(mp4|mkv|avi|mov|wmv|flv|webm)$/i.test(object.key)) {
                     const name = object.key.split('/').pop() || '';
                     let views = 0;
-                    
+
                     if (kv) {
                         const viewCount = await kv.get(`views:${object.key}`);
                         views = viewCount ? parseInt(viewCount, 10) : 0;
