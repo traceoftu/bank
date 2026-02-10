@@ -5,6 +5,9 @@ import { useState, useEffect } from 'react';
 interface AdConfig {
     imageUrl?: string;
     linkUrl: string;
+    linkUrlSamsung?: string;
+    linkUrlIphone?: string;
+    linkUrlAndroid?: string;
     title: string;
     description: string;
     version?: string;
@@ -33,11 +36,33 @@ export default function AdBanner() {
 
     if (!config) return null;
 
+    // 기기별 링크 선택
+    const getDeviceLink = () => {
+        const ua = navigator.userAgent.toLowerCase();
+        
+        // 삼성 갤럭시
+        if (ua.includes('samsung') || ua.includes('sm-')) {
+            return config.linkUrlSamsung || config.linkUrl;
+        }
+        // 아이폰
+        if (ua.includes('iphone')) {
+            return config.linkUrlIphone || config.linkUrl;
+        }
+        // 기타 안드로이드
+        if (ua.includes('android')) {
+            return config.linkUrlAndroid || config.linkUrl;
+        }
+        // 기본 (PC 등)
+        return config.linkUrl;
+    };
+
+    const targetLink = getDeviceLink();
+
     return (
         <div className="w-full max-w-4xl mx-auto px-4 py-8">
             <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 rounded-2xl overflow-hidden border border-white/10 shadow-xl">
                 <a 
-                    href={config.linkUrl} 
+                    href={targetLink} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="block"
