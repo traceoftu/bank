@@ -397,9 +397,10 @@ function FolderBrowserContent() {
                         </>
                     )}
 
-                    {items.filter(item => item.isdir).length > 0 && (
+                    {/* 홈이 아닐 때만 폴더 목록 표시 */}
+                    {(currentPath || searchQuery) && items.filter(item => item.isdir).length > 0 && (
                         <div className="mb-10">
-                            <h2 className="text-xl font-bold text-white mb-4">📁 카테고리</h2>
+                            <h2 className="text-xl font-bold text-white mb-4">📁 폴더</h2>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                                 {items.filter(item => item.isdir).map((item) => (
                                     <div
