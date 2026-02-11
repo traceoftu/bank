@@ -1,5 +1,6 @@
-const CACHE_NAME = 'jbch-hub-v2';
-const STATIC_CACHE = 'jbch-static-v2';
+const CACHE_NAME = 'jbch-hub-v3';
+const STATIC_CACHE = 'jbch-static-v3';
+const THUMBNAIL_CACHE = 'thumbnails-cache';
 
 // 앱 셸 - 필수 리소스 (오프라인에서도 작동)
 const APP_SHELL = [
@@ -18,11 +19,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+    const validCaches = [CACHE_NAME, STATIC_CACHE, THUMBNAIL_CACHE];
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE) {
+                    if (!validCaches.includes(cacheName)) {
                         return caches.delete(cacheName);
                     }
                 })
@@ -41,6 +43,27 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             fetch(request)
                 .catch(() => caches.match(request))
+        );
+        return;
+    }
+
+    // 썸네일 이미지는 캐시 우선 (R2 videos.haebomsoft.com)
+    if (url.hostname === 'videos.haebomsoft.com' && url.pathname.includes('/thumbnails/')) {
+        event.respondWith(
+            caches.match(request).then((cachedResponse) => {
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+                return fetch(request).then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseClone = networkResponse.clone();
+                        caches.open(THUMBNAIL_CACHE).then((cache) => {
+                            cache.put(request, responseClone);
+                        });
+                    }
+                    return networkResponse;
+                });
+            })
         );
         return;
     }
