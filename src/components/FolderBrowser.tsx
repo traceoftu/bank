@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
 import VideoCard from './VideoCard';
@@ -80,11 +80,42 @@ function FolderBrowserContent() {
     const [playingPath, setPlayingPath] = useState<string | null>(null);
     const [isIOS, setIsIOS] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
+    const [canCast, setCanCast] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     useEffect(() => {
         // iOS 감지
         const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         setIsIOS(checkIOS);
+    }, []);
+
+    // Remote Playback API 지원 확인 및 캐스팅 기능
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        // Remote Playback API 지원 확인
+        if ('remote' in video) {
+            const remote = (video as any).remote;
+            remote.watchAvailability((available: boolean) => {
+                setCanCast(available);
+            }).catch(() => {
+                // watchAvailability 지원 안 함
+                setCanCast(false);
+            });
+        }
+    }, [playingUrl]);
+
+    const handleCast = useCallback(async () => {
+        const video = videoRef.current;
+        if (!video || !('remote' in video)) return;
+
+        try {
+            const remote = (video as any).remote;
+            await remote.prompt();
+        } catch (err) {
+            console.error('Cast error:', err);
+        }
     }, []);
 
     // 공유 링크로 접속 시 자동 재생
@@ -213,6 +244,18 @@ function FolderBrowserContent() {
                                     </svg>
                                 </button>
                             )}
+                            {/* TV로 캐스팅 버튼 */}
+                            {canCast && (
+                                <button
+                                    onClick={handleCast}
+                                    className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
+                                    aria-label="Cast to TV"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+                                    </svg>
+                                </button>
+                            )}
                             {isIOS && playingPath && (
                                 <a
                                     href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
@@ -237,6 +280,7 @@ function FolderBrowserContent() {
                             </button>
                         </div>
                         <video
+                            ref={videoRef}
                             src={playingUrl}
                             controls
                             autoPlay
