@@ -12,6 +12,9 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
+import json
+import urllib.request
+import urllib.error
 
 # Windows에서 subprocess 콘솔 창 숨기기
 if sys.platform == 'win32':
@@ -22,6 +25,7 @@ else:
 # 설정
 R2_BUCKET = "r2:jbch-word-bank-videos"
 R2_PUBLIC_URL = "https://videos.haebomsoft.com"
+API_BASE_URL = "https://jbch.haebomsoft.com"  # 배포된 사이트 URL
 VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.webm'}
 
 # R2 카테고리 목록
@@ -344,6 +348,9 @@ class UploaderApp:
                 self.log(f"  ✅ 완료")
                 success += 1
                 
+                # 3. KV에 파일 정보 등록
+                self.register_file_to_kv(upload_path, filename)
+                
             except Exception as e:
                 self.log(f"  ❌ 오류: {e}")
                 failed += 1
@@ -358,6 +365,43 @@ class UploaderApp:
         self.upload_btn.configure(state=tk.NORMAL)
         
         messagebox.showinfo("완료", f"업로드 완료!\n성공: {success}개\n실패: {failed}개")
+    
+    def register_file_to_kv(self, upload_path, filename):
+        """KV에 파일 정보 등록"""
+        try:
+            # 카테고리 추출 (upload_path의 첫 번째 부분)
+            category = upload_path.split('/')[0]
+            
+            # 파일 정보
+            file_info = {
+                "path": f"{upload_path}/{filename}",
+                "name": filename,
+                "size": 0,  # 썸네일 크기는 중요하지 않음
+                "category": category
+            }
+            
+            # API 호출
+            data = json.dumps({
+                "action": "add",
+                "file": file_info
+            }).encode('utf-8')
+            
+            req = urllib.request.Request(
+                f"{API_BASE_URL}/api/videos/files",
+                data=data,
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                if result.get('success'):
+                    self.log(f"  📝 KV 등록 완료")
+                else:
+                    self.log(f"  ⚠️ KV 등록 실패: {result}")
+                    
+        except Exception as e:
+            self.log(f"  ⚠️ KV 등록 오류: {e}")
 
 
 def main():
