@@ -3,8 +3,20 @@ import { getRequestContext } from '@cloudflare/next-on-pages';
 
 export const runtime = 'edge';
 
+// CORS 헤더
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 // KV 키: files:all - 전체 파일 목록 JSON
 // 구조: { files: [{ path, name, size, category, uploadedAt }] }
+
+// OPTIONS (CORS preflight)
+export async function OPTIONS() {
+    return new NextResponse(null, { headers: corsHeaders });
+}
 
 // 파일 목록 조회
 export async function GET() {
@@ -21,7 +33,7 @@ export async function GET() {
         return NextResponse.json({
             success: true,
             data: data || { files: [] }
-        });
+        }, { headers: corsHeaders });
     } catch (error: any) {
         console.error('Get files error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -117,7 +129,7 @@ export async function POST(request: NextRequest) {
                 success: true,
                 message: `Synced ${syncedFiles.length} files`,
                 count: syncedFiles.length
-            });
+            }, { headers: corsHeaders });
         }
 
         // KV에 저장
@@ -126,9 +138,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             count: currentFiles.length
-        });
+        }, { headers: corsHeaders });
     } catch (error: any) {
         console.error('Update files error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }
