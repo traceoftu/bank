@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
         const kv = (env as any).VIEWS as KVNamespace;
         const bucket = (env as any).VIDEOS as R2Bucket;
 
-        // thumbnails 폴더만 스캔 (훨씬 빠름)
+        // thumbnails 폴더만 스캔 (KV 조회 없이 빠르게)
         const allVideos: { path: string; name: string; size: number; views: number; category: string }[] = [];
         const folders = new Set<string>();
 
@@ -34,19 +34,12 @@ export async function GET(request: NextRequest) {
                         const category = parts[0];
                         const name = parts[parts.length - 1];
                         folders.add(category);
-                        
-                        // 조회수 가져오기 (원본 비디오 경로로)
-                        let views = 0;
-                        if (kv) {
-                            const viewCount = await kv.get(`views:${thumbPath}`);
-                            views = viewCount ? parseInt(viewCount, 10) : 0;
-                        }
 
                         allVideos.push({
                             path: thumbPath,
                             name,
                             size: object.size,
-                            views,
+                            views: 0,  // 조회수 조회 생략 (속도 최적화)
                             category,
                         });
                     }
