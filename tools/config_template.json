@@ -1,8 +1,18 @@
 ﻿{
+    "enabled": true,
+    "bannerEnabled": true,
+    "sidebarEnabled": true,
+    "inlineEnabled": true,
+    
     "linkUrl": "https://smartstore.naver.com/movomall",
     "title": "스마트폰 케이스 구경하기",
     "description": "이 사이트는 무료로 운영됩니다. 구매 및 리뷰를 남겨주시면 서비스 유지에 큰 도움이 됩니다.",
-    "version": "4",
+    
+    "cardTitle": "공식 굿즈 스토어",
+    "cardDescription": "고품질 스마트폰 케이스를 만나보세요",
+    "cardBadge": "추천",
+    
+    "version": "5",
     
     "linkUrlSamsung": "https://smartstore.naver.com/movomall/samsung",
     "linkUrlSamsungS22": "https://smartstore.naver.com/movomall/s22",

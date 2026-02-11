@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
 import VideoCard from './VideoCard';
+import { InlineAdCard } from './ads';
 
 interface FileItem {
     name: string;
@@ -425,14 +426,22 @@ function FolderBrowserContent() {
                         <div>
                             <h2 className="text-xl font-bold text-white mb-4">🎬 영상 목록</h2>
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {items.filter(item => !item.isdir).map((item) => (
-                                    <VideoCard
-                                        key={item.path}
-                                        name={item.name}
-                                        path={item.path}
-                                        size={item.size}
-                                        onPlay={handleVideoClick}
-                                    />
+                                {items.filter(item => !item.isdir).map((item, index) => (
+                                    <>
+                                        <VideoCard
+                                            key={item.path}
+                                            name={item.name}
+                                            path={item.path}
+                                            size={item.size}
+                                            onPlay={handleVideoClick}
+                                        />
+                                        {/* 모바일에서 3번째 아이템 뒤에 인라인 광고 표시 */}
+                                        {index === 2 && (
+                                            <div key="inline-ad" className="block md:hidden">
+                                                <InlineAdCard />
+                                            </div>
+                                        )}
+                                    </>
                                 ))}
                             </div>
                         </div>
