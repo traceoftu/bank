@@ -5,46 +5,51 @@ export const runtime = 'edge';
 
 const CATEGORY_ORDER = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
 
-// 홈 화면 전용 API - 한 번의 호출로 모든 데이터 반환
+// 홈 화면 전용 API - thumbnails 폴더만 스캔하여 빠르게 반환
 export async function GET(request: NextRequest) {
     try {
         const { env } = getRequestContext();
         const kv = (env as any).VIEWS as KVNamespace;
         const bucket = (env as any).VIDEOS as R2Bucket;
 
-        // 모든 비디오 파일과 조회수를 한 번에 가져오기
+        // thumbnails 폴더만 스캔 (훨씬 빠름)
         const allVideos: { path: string; name: string; size: number; views: number; category: string }[] = [];
         const folders = new Set<string>();
 
         let cursor: string | undefined;
         do {
-            const listed = await bucket.list({ cursor });
+            const listed = await bucket.list({ 
+                cursor,
+                prefix: 'thumbnails/'  // 썸네일 폴더만 스캔
+            });
 
             for (const object of listed.objects) {
-                // 폴더 수집
-                const parts = object.key.split('/');
-                if (parts.length > 1 && parts[0]) {
-                    folders.add(parts[0]);
-                }
-
-                // 비디오 파일만 처리
-                if (!object.key.endsWith('/') && /\.(mp4|mkv|avi|mov|wmv|flv|webm)$/i.test(object.key)) {
-                    const name = parts.pop() || '';
-                    const category = parts[0] || '';
+                // thumbnails/카테고리/파일명.jpg 형태
+                if (!object.key.endsWith('/') && object.key.endsWith('.jpg')) {
+                    // thumbnails/ 제거하고 원본 비디오 경로 추출
+                    const thumbPath = object.key.replace('thumbnails/', '').replace('.jpg', '');
+                    const parts = thumbPath.split('/');
                     
-                    let views = 0;
-                    if (kv) {
-                        const viewCount = await kv.get(`views:${object.key}`);
-                        views = viewCount ? parseInt(viewCount, 10) : 0;
-                    }
+                    if (parts.length >= 2) {
+                        const category = parts[0];
+                        const name = parts[parts.length - 1];
+                        folders.add(category);
+                        
+                        // 조회수 가져오기 (원본 비디오 경로로)
+                        let views = 0;
+                        if (kv) {
+                            const viewCount = await kv.get(`views:${thumbPath}`);
+                            views = viewCount ? parseInt(viewCount, 10) : 0;
+                        }
 
-                    allVideos.push({
-                        path: object.key,
-                        name,
-                        size: object.size,
-                        views,
-                        category,
-                    });
+                        allVideos.push({
+                            path: thumbPath,
+                            name,
+                            size: object.size,
+                            views,
+                            category,
+                        });
+                    }
                 }
             }
 
