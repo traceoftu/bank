@@ -137,45 +137,14 @@ function FolderBrowserContent() {
         }
     };
 
-    // Fetch popular videos for home page
+    // Fetch popular videos for home page - 단일 API 호출로 최적화
     const fetchHomeData = async () => {
         try {
-            // Global Top 10
-            const popularRes = await axios.get('/api/videos/popular');
-            if (popularRes.data.data?.videos) {
-                setPopularVideos(popularRes.data.data.videos);
+            const res = await axios.get('/api/videos/home');
+            if (res.data.data) {
+                setPopularVideos(res.data.data.top10 || []);
+                setCategoryData(res.data.data.categories || []);
             }
-
-            // 루트 폴더 목록 가져오기 (자동 감지)
-            const foldersRes = await axios.get('/api/videos/folders');
-            const folders = foldersRes.data.data?.files?.filter((f: FileItem) => f.isdir) || [];
-            
-            // 폴더 정렬: CATEGORY_ORDER 순서대로, 나머지는 가나다순
-            const sortedFolders = [...folders].sort((a: FileItem, b: FileItem) => {
-                const indexA = CATEGORY_ORDER.indexOf(a.name);
-                const indexB = CATEGORY_ORDER.indexOf(b.name);
-                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                if (indexA !== -1) return -1;
-                if (indexB !== -1) return 1;
-                return a.name.localeCompare(b.name);
-            });
-
-            // 각 폴더별 인기 영상 가져오기
-            const categoryResults = await Promise.all(
-                sortedFolders.map(async (folder: FileItem) => {
-                    try {
-                        const res = await axios.get(`/api/videos/popular?path=${encodeURIComponent(folder.name)}&limit=5`);
-                        return {
-                            category: folder.name,
-                            path: folder.name,
-                            videos: res.data.data?.videos || []
-                        };
-                    } catch (e) {
-                        return { category: folder.name, path: folder.name, videos: [] };
-                    }
-                })
-            );
-            setCategoryData(categoryResults);
         } catch (err) {
             console.error('Failed to fetch home data:', err);
         }
