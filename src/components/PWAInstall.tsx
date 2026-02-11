@@ -78,9 +78,11 @@ export default function PWAInstall() {
         <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 animate-in slide-in-from-bottom-4">
             <div className="bg-zinc-900 border border-white/10 rounded-2xl p-4 shadow-2xl">
                 <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-bold text-lg">J</span>
-                    </div>
+                    <img 
+                        src="/icons/icon-192x192.png" 
+                        alt="JBCH Hub" 
+                        className="w-12 h-12 rounded-xl flex-shrink-0"
+                    />
                     <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-semibold text-white">앱 설치하기</h3>
                         <p className="text-xs text-zinc-400 mt-0.5">
