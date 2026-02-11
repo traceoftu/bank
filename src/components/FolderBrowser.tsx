@@ -164,7 +164,7 @@ function FolderBrowserContent() {
             const categoryResults = await Promise.all(
                 sortedFolders.map(async (folder: FileItem) => {
                     try {
-                        const res = await axios.get(`/api/videos/popular?path=${encodeURIComponent(folder.name)}`);
+                        const res = await axios.get(`/api/videos/popular?path=${encodeURIComponent(folder.name)}&limit=5`);
                         return {
                             category: folder.name,
                             path: folder.name,

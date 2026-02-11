@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
 
         const searchParams = request.nextUrl.searchParams;
         const prefix = searchParams.get('path') || '';
+        const limit = parseInt(searchParams.get('limit') || '10', 10);
 
         // Get all videos from R2
         const allFiles: { path: string; name: string; size: number; views: number }[] = [];
@@ -48,15 +49,15 @@ export async function GET(request: NextRequest) {
             cursor = listed.truncated ? listed.cursor : undefined;
         } while (cursor);
 
-        // Sort by views (descending) and take top 10
-        const top10 = allFiles
+        // Sort by views (descending) and take top N
+        const topVideos = allFiles
             .sort((a, b) => b.views - a.views)
-            .slice(0, 10);
+            .slice(0, limit);
 
         return NextResponse.json({
             success: true,
             data: {
-                videos: top10,
+                videos: topVideos,
             },
         });
     } catch (error: any) {
