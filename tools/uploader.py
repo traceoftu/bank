@@ -66,6 +66,8 @@ class UploaderApp:
         self.upload_btn.pack(side=tk.RIGHT, ipadx=20, ipady=5)
         self.sync_btn = ttk.Button(header_frame, text="🔄 KV 동기화", command=self.sync_kv)
         self.sync_btn.pack(side=tk.RIGHT, padx=(0, 10))
+        self.delete_btn = ttk.Button(header_frame, text="🗑️ 영상 삭제", command=self.open_delete_dialog)
+        self.delete_btn.pack(side=tk.RIGHT, padx=(0, 10))
         
         # === 파일 선택 섹션 ===
         file_frame = ttk.LabelFrame(main_frame, text="1. 업로드할 파일/폴더 선택", padding="10")
@@ -450,6 +452,172 @@ class UploaderApp:
         thread = threading.Thread(target=do_sync)
         thread.daemon = True
         thread.start()
+    
+    def open_delete_dialog(self):
+        """영상 삭제 다이얼로그 열기"""
+        if self.is_uploading:
+            messagebox.showwarning("경고", "업로드 중에는 삭제할 수 없습니다.")
+            return
+        
+        # 새 창 생성
+        dialog = tk.Toplevel(self.root)
+        dialog.title("영상 삭제")
+        dialog.geometry("600x500")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # 카테고리 선택
+        cat_frame = ttk.Frame(dialog, padding="10")
+        cat_frame.pack(fill=tk.X)
+        
+        ttk.Label(cat_frame, text="카테고리:").pack(side=tk.LEFT)
+        cat_var = tk.StringVar()
+        cat_combo = ttk.Combobox(cat_frame, textvariable=cat_var, values=CATEGORIES, width=20)
+        cat_combo.pack(side=tk.LEFT, padx=(5, 10))
+        
+        ttk.Label(cat_frame, text="하위 폴더:").pack(side=tk.LEFT)
+        subfolder_var = tk.StringVar()
+        subfolder_combo = ttk.Combobox(cat_frame, textvariable=subfolder_var, width=25)
+        subfolder_combo.pack(side=tk.LEFT, padx=(5, 10))
+        
+        load_btn = ttk.Button(cat_frame, text="📂 파일 목록 조회")
+        load_btn.pack(side=tk.LEFT)
+        
+        # 파일 목록
+        list_frame = ttk.LabelFrame(dialog, text="삭제할 파일 선택", padding="10")
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        file_listbox = tk.Listbox(list_frame, height=15, selectmode=tk.EXTENDED)
+        file_listbox.pack(fill=tk.BOTH, expand=True)
+        
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=file_listbox.yview)
+        file_listbox.configure(yscrollcommand=scrollbar.set)
+        
+        # 파일 경로 저장용
+        file_paths = []
+        
+        def on_category_change(event=None):
+            category = cat_var.get()
+            if not category:
+                return
+            try:
+                result = subprocess.run(
+                    ["rclone", "lsf", f"{R2_BUCKET}/{category}", "--dirs-only", "-R"],
+                    capture_output=True, text=True, encoding='utf-8',
+                    creationflags=SUBPROCESS_FLAGS
+                )
+                if result.returncode == 0:
+                    subfolders = [f.rstrip('/') for f in result.stdout.strip().split('\n') if f]
+                    subfolder_combo['values'] = [""] + subfolders
+                    subfolder_var.set("")
+            except Exception as e:
+                pass
+        
+        def load_files():
+            category = cat_var.get()
+            subfolder = subfolder_var.get()
+            if not category:
+                messagebox.showwarning("경고", "카테고리를 선택하세요.")
+                return
+            
+            file_listbox.delete(0, tk.END)
+            file_paths.clear()
+            
+            path = f"{category}/{subfolder}" if subfolder else category
+            
+            try:
+                result = subprocess.run(
+                    ["rclone", "lsf", f"{R2_BUCKET}/{path}", "--files-only"],
+                    capture_output=True, text=True, encoding='utf-8',
+                    creationflags=SUBPROCESS_FLAGS
+                )
+                if result.returncode == 0:
+                    files = [f for f in result.stdout.strip().split('\n') if f and f.endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm'))]
+                    for f in files:
+                        file_listbox.insert(tk.END, f)
+                        file_paths.append(f"{path}/{f}")
+                    
+                    if not files:
+                        messagebox.showinfo("알림", "해당 경로에 영상 파일이 없습니다.")
+            except Exception as e:
+                messagebox.showerror("오류", f"파일 목록 조회 실패: {e}")
+        
+        def delete_selected():
+            selected_indices = file_listbox.curselection()
+            if not selected_indices:
+                messagebox.showwarning("경고", "삭제할 파일을 선택하세요.")
+                return
+            
+            selected_files = [file_paths[i] for i in selected_indices]
+            
+            if not messagebox.askyesno("확인", f"{len(selected_files)}개 파일을 삭제하시겠습니까?\n\n영상 파일과 썸네일이 함께 삭제됩니다."):
+                return
+            
+            success = 0
+            failed = 0
+            
+            for file_path in selected_files:
+                try:
+                    # 1. 영상 파일 삭제
+                    result = subprocess.run(
+                        ["rclone", "deletefile", f"{R2_BUCKET}/{file_path}"],
+                        capture_output=True, text=False,
+                        creationflags=SUBPROCESS_FLAGS
+                    )
+                    
+                    # 2. 썸네일 삭제
+                    thumb_path = f"thumbnails/{file_path}.jpg"
+                    subprocess.run(
+                        ["rclone", "deletefile", f"{R2_BUCKET}/{thumb_path}"],
+                        capture_output=True, text=False,
+                        creationflags=SUBPROCESS_FLAGS
+                    )
+                    
+                    if result.returncode == 0:
+                        success += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    failed += 1
+            
+            dialog.destroy()
+            self.log(f"🗑️ {success}개 파일 삭제 완료")
+            
+            # 자동으로 KV 동기화 실행
+            self.log("🔄 KV 자동 동기화 중...")
+            try:
+                data = json.dumps({"action": "sync"}).encode('utf-8')
+                req = urllib.request.Request(
+                    f"{API_BASE_URL}/api/videos/files",
+                    data=data,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'JBCH-Uploader/1.0'
+                    },
+                    method='POST'
+                )
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+                    if result.get('success'):
+                        count = result.get('count', 0)
+                        self.log(f"✅ KV 동기화 완료! ({count}개 파일)")
+                        messagebox.showinfo("완료", f"삭제 완료!\n성공: {success}개\n실패: {failed}개\n\nKV 동기화 완료 ({count}개 파일)")
+                    else:
+                        self.log(f"⚠️ KV 동기화 실패")
+                        messagebox.showinfo("완료", f"삭제 완료!\n성공: {success}개\n실패: {failed}개\n\n⚠️ KV 동기화 실패 - 수동으로 동기화해주세요.")
+            except Exception as e:
+                self.log(f"⚠️ KV 동기화 오류: {e}")
+                messagebox.showinfo("완료", f"삭제 완료!\n성공: {success}개\n실패: {failed}개\n\n⚠️ KV 동기화 오류 - 수동으로 동기화해주세요.")
+        
+        cat_combo.bind("<<ComboboxSelected>>", on_category_change)
+        load_btn.configure(command=load_files)
+        
+        # 버튼
+        btn_frame = ttk.Frame(dialog, padding="10")
+        btn_frame.pack(fill=tk.X)
+        
+        ttk.Button(btn_frame, text="🗑️ 선택 파일 삭제", command=delete_selected).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(btn_frame, text="취소", command=dialog.destroy).pack(side=tk.RIGHT)
 
 
 def main():
