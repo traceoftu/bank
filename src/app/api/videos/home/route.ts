@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
         const kv = (env as any).VIEWS as KVNamespace;
         const bucket = (env as any).VIDEOS as R2Bucket;
 
-        // thumbnails 폴더만 스캔 (KV 조회 없이 빠르게)
-        const allVideos: { path: string; name: string; size: number; views: number; category: string }[] = [];
+        // thumbnails 폴더만 스캔
+        const videoInfos: { path: string; name: string; size: number; category: string }[] = [];
         const folders = new Set<string>();
 
         let cursor: string | undefined;
@@ -35,11 +35,10 @@ export async function GET(request: NextRequest) {
                         const name = parts[parts.length - 1];
                         folders.add(category);
 
-                        allVideos.push({
+                        videoInfos.push({
                             path: thumbPath,
                             name,
                             size: object.size,
-                            views: 0,  // 조회수 조회 생략 (속도 최적화)
                             category,
                         });
                     }
@@ -48,6 +47,21 @@ export async function GET(request: NextRequest) {
 
             cursor = listed.truncated ? listed.cursor : undefined;
         } while (cursor);
+
+        // KV 조회를 병렬로 처리 (모든 조회를 동시에 실행)
+        const viewCounts = await Promise.all(
+            videoInfos.map(async (video) => {
+                if (!kv) return 0;
+                const count = await kv.get(`views:${video.path}`);
+                return count ? parseInt(count, 10) : 0;
+            })
+        );
+
+        // 조회수와 합치기
+        const allVideos = videoInfos.map((video, index) => ({
+            ...video,
+            views: viewCounts[index],
+        }));
 
         // 전체 TOP 10
         const top10 = [...allVideos]
