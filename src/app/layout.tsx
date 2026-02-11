@@ -6,6 +6,7 @@ import Link from "next/link";
 import SearchHeader from "@/components/SearchHeader";
 import AdBanner from "@/components/AdBanner";
 import PWAInstall from "@/components/PWAInstall";
+import LoadingScreen from "@/components/LoadingScreen";
 import { Suspense } from "react";
 
 const geistSans = Geist({
@@ -61,6 +62,7 @@ export default function RootLayout({
         </main>
         <AdBanner />
         <PWAInstall />
+        <LoadingScreen />
         <footer className="py-8 border-t border-white/5 text-center text-sm text-zinc-500">
           <p>© {new Date().getFullYear()} JBCH Word of Life Hub</p>
           <p className="mt-1 text-xs text-zinc-600">Designed & Developed by haebomsoft</p>
