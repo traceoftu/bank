@@ -124,6 +124,9 @@ export async function POST(request: NextRequest) {
 
             // KV에 저장
             await kv.put('files:all', JSON.stringify({ files: syncedFiles }));
+            
+            // 홈 캐시 삭제 (새 데이터 반영)
+            await kv.delete('cache:home');
 
             return NextResponse.json({
                 success: true,
@@ -134,6 +137,9 @@ export async function POST(request: NextRequest) {
 
         // KV에 저장
         await kv.put('files:all', JSON.stringify({ files: currentFiles }));
+        
+        // 홈 캐시 삭제 (새 데이터 반영)
+        await kv.delete('cache:home');
 
         return NextResponse.json({
             success: true,

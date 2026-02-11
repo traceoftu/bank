@@ -64,6 +64,8 @@ class UploaderApp:
         ttk.Label(header_frame, text="JBCH Word Bank 영상 업로더", font=("", 12, "bold")).pack(side=tk.LEFT)
         self.upload_btn = ttk.Button(header_frame, text="🚀 업로드 시작", command=self.start_upload)
         self.upload_btn.pack(side=tk.RIGHT, ipadx=20, ipady=5)
+        self.sync_btn = ttk.Button(header_frame, text="🔄 KV 동기화", command=self.sync_kv)
+        self.sync_btn.pack(side=tk.RIGHT, padx=(0, 10))
         
         # === 파일 선택 섹션 ===
         file_frame = ttk.LabelFrame(main_frame, text="1. 업로드할 파일/폴더 선택", padding="10")
@@ -389,7 +391,10 @@ class UploaderApp:
             req = urllib.request.Request(
                 f"{API_BASE_URL}/api/videos/files",
                 data=data,
-                headers={'Content-Type': 'application/json'},
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'JBCH-Uploader/1.0'
+                },
                 method='POST'
             )
             
@@ -402,6 +407,49 @@ class UploaderApp:
                     
         except Exception as e:
             self.log(f"  ⚠️ KV 등록 오류: {e}")
+    
+    def sync_kv(self):
+        """R2에서 KV로 파일 목록 동기화"""
+        if self.is_uploading:
+            messagebox.showwarning("경고", "업로드 중에는 동기화할 수 없습니다.")
+            return
+        
+        self.sync_btn.configure(state=tk.DISABLED)
+        self.log("🔄 KV 동기화 시작...")
+        
+        def do_sync():
+            try:
+                data = json.dumps({"action": "sync"}).encode('utf-8')
+                req = urllib.request.Request(
+                    f"{API_BASE_URL}/api/videos/files",
+                    data=data,
+                    headers={
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'JBCH-Uploader/1.0'
+                    },
+                    method='POST'
+                )
+                
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+                    if result.get('success'):
+                        count = result.get('count', 0)
+                        self.log(f"✅ KV 동기화 완료! ({count}개 파일)")
+                        messagebox.showinfo("완료", f"KV 동기화 완료!\n{count}개 파일이 등록되었습니다.")
+                    else:
+                        self.log(f"❌ KV 동기화 실패: {result}")
+                        messagebox.showerror("오류", f"동기화 실패: {result}")
+                        
+            except Exception as e:
+                self.log(f"❌ KV 동기화 오류: {e}")
+                messagebox.showerror("오류", f"동기화 오류: {e}")
+            finally:
+                self.sync_btn.configure(state=tk.NORMAL)
+        
+        # 별도 스레드에서 실행
+        thread = threading.Thread(target=do_sync)
+        thread.daemon = True
+        thread.start()
 
 
 def main():
