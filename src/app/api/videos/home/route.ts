@@ -11,6 +11,18 @@ export async function GET(request: NextRequest) {
         const { env } = getRequestContext();
         const kv = (env as any).VIEWS as KVNamespace;
 
+        // 캐시된 홈 데이터 확인 (5분 캐시)
+        const cachedHome = await kv.get('cache:home', 'json') as { data: any; timestamp: number } | null;
+        const CACHE_TTL = 5 * 60 * 1000; // 5분
+
+        if (cachedHome && (Date.now() - cachedHome.timestamp) < CACHE_TTL) {
+            return NextResponse.json({
+                success: true,
+                data: cachedHome.data,
+                cached: true
+            });
+        }
+
         // KV에서 파일 목록 가져오기 (R2 LIST 대신)
         const filesData = await kv.get('files:all', 'json') as { files: any[] } | null;
         const videoInfos = filesData?.files || [];
@@ -81,12 +93,20 @@ export async function GET(request: NextRequest) {
             };
         });
 
+        const responseData = {
+            top10,
+            categories,
+        };
+
+        // 캐시에 저장 (5분간 유효)
+        await kv.put('cache:home', JSON.stringify({
+            data: responseData,
+            timestamp: Date.now()
+        }));
+
         return NextResponse.json({
             success: true,
-            data: {
-                top10,
-                categories,
-            },
+            data: responseData,
         });
     } catch (error: any) {
         console.error('Home data error:', error);

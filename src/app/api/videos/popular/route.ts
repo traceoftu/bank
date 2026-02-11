@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestContext } from '@cloudflare/next-on-pages';
-import { listR2Files } from '@/lib/r2';
 
 export const runtime = 'edge';
 
-// Get top 10 popular videos
+// KV에서 인기 영상 조회 (R2 LIST 호출 안 함)
 export async function GET(request: NextRequest) {
     try {
         const { env } = getRequestContext();
@@ -14,43 +13,34 @@ export async function GET(request: NextRequest) {
         const prefix = searchParams.get('path') || '';
         const limit = parseInt(searchParams.get('limit') || '10', 10);
 
-        // Get all videos from R2
-        const allFiles: { path: string; name: string; size: number; views: number }[] = [];
+        // KV에서 파일 목록 가져오기
+        const filesData = await kv.get('files:all', 'json') as { files: any[] } | null;
+        let allFiles = filesData?.files || [];
 
-        // List all files recursively
-        const bucket = (env as any).VIDEOS as R2Bucket;
-        let cursor: string | undefined;
+        // prefix로 필터링
+        if (prefix) {
+            allFiles = allFiles.filter((f: any) => f.path.startsWith(prefix));
+        }
 
-        do {
-            const listed = await bucket.list({
-                cursor,
-                prefix: prefix || undefined
-            });
-
-            for (const object of listed.objects) {
-                if (!object.key.endsWith('/') && /\.(mp4|mkv|avi|mov|wmv|flv|webm)$/i.test(object.key)) {
-                    const name = object.key.split('/').pop() || '';
-                    let views = 0;
-
-                    if (kv) {
-                        const viewCount = await kv.get(`views:${object.key}`);
-                        views = viewCount ? parseInt(viewCount, 10) : 0;
-                    }
-
-                    allFiles.push({
-                        path: object.key,
-                        name,
-                        size: object.size,
-                        views,
-                    });
+        // 조회수 병렬 조회
+        const videosWithViews = await Promise.all(
+            allFiles.map(async (file: any) => {
+                let views = 0;
+                if (kv) {
+                    const viewCount = await kv.get(`views:${file.path}`);
+                    views = viewCount ? parseInt(viewCount, 10) : 0;
                 }
-            }
+                return {
+                    path: file.path,
+                    name: file.name,
+                    size: file.size || 0,
+                    views,
+                };
+            })
+        );
 
-            cursor = listed.truncated ? listed.cursor : undefined;
-        } while (cursor);
-
-        // Sort by views (descending) and take top N
-        const topVideos = allFiles
+        // 조회수 기준 정렬 후 상위 N개
+        const topVideos = videosWithViews
             .sort((a, b) => b.views - a.views)
             .slice(0, limit);
 
