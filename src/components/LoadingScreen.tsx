@@ -4,25 +4,56 @@ import { useEffect, useState } from 'react';
 
 export default function LoadingScreen() {
     const [isLoading, setIsLoading] = useState(true);
+    const [isFading, setIsFading] = useState(false);
 
     useEffect(() => {
-        // 페이지 로드 완료 후 로딩 화면 숨김
-        const handleLoad = () => {
+        // 콘텐츠가 실제로 렌더링될 때까지 대기
+        const checkContentLoaded = () => {
+            // main 콘텐츠 영역에 실제 콘텐츠가 있는지 확인
+            const mainContent = document.querySelector('main');
+            const hasContent = mainContent && mainContent.children.length > 0;
+            
+            // 이미지들이 로드되었는지 확인
+            const images = document.querySelectorAll('img');
+            const loadedImages = Array.from(images).filter(img => img.complete);
+            const imagesLoaded = images.length === 0 || loadedImages.length >= Math.min(images.length, 4);
+            
+            return hasContent && imagesLoaded;
+        };
+
+        const hideLoading = () => {
+            setIsFading(true);
             setTimeout(() => setIsLoading(false), 300);
         };
 
-        if (document.readyState === 'complete') {
-            handleLoad();
-        } else {
-            window.addEventListener('load', handleLoad);
-            return () => window.removeEventListener('load', handleLoad);
-        }
+        // 최소 800ms 대기 후 콘텐츠 로드 확인
+        const minDelay = setTimeout(() => {
+            if (checkContentLoaded()) {
+                hideLoading();
+            } else {
+                // 콘텐츠가 아직 없으면 폴링
+                const interval = setInterval(() => {
+                    if (checkContentLoaded()) {
+                        clearInterval(interval);
+                        hideLoading();
+                    }
+                }, 100);
+                
+                // 최대 5초 후 강제 숨김
+                setTimeout(() => {
+                    clearInterval(interval);
+                    hideLoading();
+                }, 5000);
+            }
+        }, 800);
+
+        return () => clearTimeout(minDelay);
     }, []);
 
     if (!isLoading) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] bg-zinc-950 flex flex-col items-center justify-center transition-opacity duration-300">
+        <div className={`fixed inset-0 z-[9999] bg-zinc-950 flex flex-col items-center justify-center transition-opacity duration-300 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
             <img 
                 src="/icons/icon-192x192.png" 
                 alt="JBCH Hub" 
