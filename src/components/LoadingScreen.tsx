@@ -7,47 +7,24 @@ export default function LoadingScreen() {
     const [isFading, setIsFading] = useState(false);
 
     useEffect(() => {
-        // 콘텐츠가 실제로 렌더링될 때까지 대기
-        const checkContentLoaded = () => {
-            // main 콘텐츠 영역에 실제 콘텐츠가 있는지 확인
-            const mainContent = document.querySelector('main');
-            const hasContent = mainContent && mainContent.children.length > 0;
-            
-            // 이미지들이 로드되었는지 확인
-            const images = document.querySelectorAll('img');
-            const loadedImages = Array.from(images).filter(img => img.complete);
-            const imagesLoaded = images.length === 0 || loadedImages.length >= Math.min(images.length, 4);
-            
-            return hasContent && imagesLoaded;
-        };
+        let intervalId: ReturnType<typeof setInterval> | null = null;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const hideLoading = () => {
             setIsFading(true);
             setTimeout(() => setIsLoading(false), 300);
         };
 
-        // 최소 800ms 대기 후 콘텐츠 로드 확인
+        // 간단하게 1.5초 후 숨김 (콘텐츠 로드 대기)
         const minDelay = setTimeout(() => {
-            if (checkContentLoaded()) {
-                hideLoading();
-            } else {
-                // 콘텐츠가 아직 없으면 폴링
-                const interval = setInterval(() => {
-                    if (checkContentLoaded()) {
-                        clearInterval(interval);
-                        hideLoading();
-                    }
-                }, 100);
-                
-                // 최대 5초 후 강제 숨김
-                setTimeout(() => {
-                    clearInterval(interval);
-                    hideLoading();
-                }, 5000);
-            }
-        }, 800);
+            hideLoading();
+        }, 1500);
 
-        return () => clearTimeout(minDelay);
+        return () => {
+            clearTimeout(minDelay);
+            if (intervalId) clearInterval(intervalId);
+            if (timeoutId) clearTimeout(timeoutId);
+        };
     }, []);
 
     if (!isLoading) return null;

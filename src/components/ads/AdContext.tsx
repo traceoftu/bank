@@ -178,7 +178,12 @@ export function AdProvider({ children }: { children: ReactNode }) {
 export function useAd() {
     const context = useContext(AdContext);
     if (!context) {
-        throw new Error('useAd must be used within AdProvider');
+        // AdProvider 외부에서 호출되면 기본값 반환 (에러 대신)
+        return {
+            config: null,
+            isLoading: false,
+            getDeviceLink: () => '',
+        };
     }
     return context;
 }
