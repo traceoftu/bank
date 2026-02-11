@@ -79,12 +79,12 @@ export async function GET(request: NextRequest) {
             return a.localeCompare(b);
         });
 
-        // 카테고리별 TOP 5
+        // 카테고리별 TOP 10
         const categories = sortedFolders.map(folder => {
             const categoryVideos = allVideos
                 .filter(v => v.category === folder)
                 .sort((a, b) => b.views - a.views)
-                .slice(0, 5)
+                .slice(0, 10)
                 .map(({ category, ...rest }) => rest);
 
             return {
