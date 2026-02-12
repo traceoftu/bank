@@ -166,15 +166,29 @@ function FolderBrowserContent() {
 
     const handleCast = useCallback(async () => {
         const video = videoRef.current;
-        if (!video || !('remote' in video)) return;
+        if (!video || !playingPath) return;
 
-        try {
-            const remote = (video as any).remote;
-            await remote.prompt();
-        } catch (err) {
-            console.error('Cast error:', err);
+        // HLS 중지 → MP4 전환 (Remote Playback은 MP4에서만 동작)
+        if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
         }
-    }, []);
+        const currentTime = video.currentTime;
+        const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
+        video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
+        video.currentTime = currentTime;
+
+        // MP4 로드 후 Remote Playback prompt
+        if ('remote' in video) {
+            try {
+                const remote = (video as any).remote;
+                await remote.prompt();
+            } catch (err) {
+                console.error('Cast error:', err);
+            }
+        }
+        video.play().catch(() => {});
+    }, [playingPath]);
 
     // 공유 링크로 접속 시 자동 재생
     useEffect(() => {
@@ -331,7 +345,7 @@ function FolderBrowserContent() {
                                 </button>
                             )}
                             {/* TV로 캐스팅 버튼 */}
-                            {canCast && (
+                            {playingPath && (
                                 <button
                                     onClick={handleCast}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
@@ -345,12 +359,18 @@ function FolderBrowserContent() {
                             {playingPath && (
                                 <button
                                     onClick={() => {
-                                        const url = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
-                                        const iframe = document.createElement('iframe');
-                                        iframe.style.display = 'none';
-                                        iframe.src = url;
-                                        document.body.appendChild(iframe);
-                                        setTimeout(() => iframe.remove(), 60000);
+                                        const video = videoRef.current;
+                                        if (!video) return;
+                                        // HLS 중지 → MP4 직접 재생 전환
+                                        if (hlsRef.current) {
+                                            hlsRef.current.destroy();
+                                            hlsRef.current = null;
+                                        }
+                                        const currentTime = video.currentTime;
+                                        const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
+                                        video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
+                                        video.currentTime = currentTime;
+                                        video.play().catch(() => {});
                                     }}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                     aria-label="Download video"
