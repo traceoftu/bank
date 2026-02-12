@@ -22,22 +22,29 @@ export async function GET(request: NextRequest) {
             allFiles = allFiles.filter((f: any) => f.path.startsWith(prefix));
         }
 
-        // 조회수 병렬 조회
-        const videosWithViews = await Promise.all(
-            allFiles.map(async (file: any) => {
-                let views = 0;
-                if (kv) {
-                    const viewCount = await kv.get(`views:${file.path}`);
-                    views = viewCount ? parseInt(viewCount, 10) : 0;
+        // D1에서 조회수 일괄 조회
+        const db = (env as any).DB as D1Database;
+        let viewsMap: Record<string, number> = {};
+        
+        if (db) {
+            try {
+                const result = await db.prepare('SELECT path, count FROM views').all();
+                if (result.results) {
+                    for (const row of result.results as any[]) {
+                        viewsMap[row.path] = row.count;
+                    }
                 }
-                return {
-                    path: file.path,
-                    name: file.name,
-                    size: file.size || 0,
-                    views,
-                };
-            })
-        );
+            } catch (e) {
+                console.error('D1 views query error:', e);
+            }
+        }
+
+        const videosWithViews = allFiles.map((file: any) => ({
+            path: file.path,
+            name: file.name,
+            size: file.size || 0,
+            views: viewsMap[file.path] || 0,
+        }));
 
         // 조회수 기준 정렬 후 상위 N개
         const topVideos = videosWithViews

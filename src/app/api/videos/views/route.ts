@@ -14,14 +14,14 @@ export async function GET(request: NextRequest) {
 
     try {
         const { env } = getRequestContext();
-        const kv = (env as any).VIEWS as KVNamespace;
+        const db = (env as any).DB as D1Database;
         
-        if (!kv) {
+        if (!db) {
             return NextResponse.json({ views: 0 });
         }
 
-        const views = await kv.get(`views:${path}`);
-        return NextResponse.json({ views: views ? parseInt(views, 10) : 0 });
+        const row = await db.prepare('SELECT count FROM views WHERE path = ?').bind(path).first();
+        return NextResponse.json({ views: row ? (row as any).count : 0 });
     } catch (error: any) {
         console.error('Get views error:', error);
         return NextResponse.json({ views: 0 });
@@ -39,34 +39,20 @@ export async function POST(request: NextRequest) {
         }
 
         const { env } = getRequestContext();
-        const kv = (env as any).VIEWS as KVNamespace;
+        const db = (env as any).DB as D1Database;
         
-        if (!kv) {
-            return NextResponse.json({ views: 0, message: 'KV not configured' });
+        if (!db) {
+            return NextResponse.json({ views: 0, message: 'D1 not configured' });
         }
 
-        // IP 기반 중복 방지 (1시간 쿨다운)
-        const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
-        const ipHash = ip.split('.').slice(0, 3).join('.'); // /24 서브넷
-        const cooldownKey = `vc:${ipHash}:${path}`;
-        const lastView = await kv.get(cooldownKey);
-        
-        if (lastView) {
-            // 쿨다운 중 - KV 쓰기 없이 현재 조회수만 반환
-            const currentViews = await kv.get(`views:${path}`);
-            return NextResponse.json({ views: currentViews ? parseInt(currentViews, 10) : 0 });
-        }
+        // 원자적 증가 (INSERT OR UPDATE)
+        await db.prepare(
+            'INSERT INTO views (path, count, updated_at) VALUES (?, 1, ?) ON CONFLICT(path) DO UPDATE SET count = count + 1, updated_at = ?'
+        ).bind(path, Date.now(), Date.now()).run();
 
-        // 쿨다운 키 설정 (1시간 TTL, 자동 삭제)
-        await kv.put(cooldownKey, '1', { expirationTtl: 3600 });
-
-        const key = `views:${path}`;
-        const currentViews = await kv.get(key);
-        const newViews = (currentViews ? parseInt(currentViews, 10) : 0) + 1;
-        
-        await kv.put(key, newViews.toString());
-
-        return NextResponse.json({ views: newViews });
+        // 업데이트된 조회수 반환
+        const row = await db.prepare('SELECT count FROM views WHERE path = ?').bind(path).first();
+        return NextResponse.json({ views: row ? (row as any).count : 1 });
     } catch (error: any) {
         console.error('Increment views error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

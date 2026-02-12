@@ -47,19 +47,27 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // KV 조회를 병렬로 처리 (조회수 가져오기)
-        const viewCounts = await Promise.all(
-            videoInfos.map(async (video: any) => {
-                if (!kv) return 0;
-                const count = await kv.get(`views:${video.path}`);
-                return count ? parseInt(count, 10) : 0;
-            })
-        );
+        // D1에서 조회수 일괄 조회
+        const db = (env as any).DB as D1Database;
+        let viewsMap: Record<string, number> = {};
+        
+        if (db) {
+            try {
+                const result = await db.prepare('SELECT path, count FROM views').all();
+                if (result.results) {
+                    for (const row of result.results as any[]) {
+                        viewsMap[row.path] = row.count;
+                    }
+                }
+            } catch (e) {
+                console.error('D1 views query error:', e);
+            }
+        }
 
         // 조회수와 합치기
-        const allVideos = videoInfos.map((video: any, index: number) => ({
+        const allVideos = videoInfos.map((video: any) => ({
             ...video,
-            views: viewCounts[index],
+            views: viewsMap[video.path] || 0,
         }));
 
         // 전체 TOP 10
