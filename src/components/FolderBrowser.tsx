@@ -357,28 +357,17 @@ function FolderBrowserContent() {
                                 </button>
                             )}
                             {playingPath && (
-                                <button
-                                    onClick={() => {
-                                        const video = videoRef.current;
-                                        if (!video) return;
-                                        // HLS 중지 → MP4 직접 재생 전환
-                                        if (hlsRef.current) {
-                                            hlsRef.current.destroy();
-                                            hlsRef.current = null;
-                                        }
-                                        const currentTime = video.currentTime;
-                                        const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
-                                        video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
-                                        video.currentTime = currentTime;
-                                        video.play().catch(() => {});
-                                    }}
+                                <a
+                                    href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                     aria-label="Download video"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
-                                </button>
+                                </a>
                             )}
                             <button
                                 onClick={() => {
