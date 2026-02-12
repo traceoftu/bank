@@ -295,6 +295,9 @@ function FolderBrowserContent() {
     const handleVideoClick = async (path: string) => {
         setPlayingPath(path);
 
+        // 조회수 증가 (비동기, 독립 실행)
+        incrementViewIfNeeded(path);
+
         // path에서 HLS 경로 추론: 폴더/파일.mp4 → 폴더/hls/파일명/index.m3u8
         const dir = path.substring(0, path.lastIndexOf('/'));
         const filename = path.substring(path.lastIndexOf('/') + 1);
@@ -314,8 +317,6 @@ function FolderBrowserContent() {
         } catch {
             setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(path)}`);
         }
-
-        incrementViewIfNeeded(path);
     };
 
     return (
