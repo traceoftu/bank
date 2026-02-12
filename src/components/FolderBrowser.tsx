@@ -318,7 +318,7 @@ function FolderBrowserContent() {
                         className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className={`absolute top-4 right-4 z-50 flex items-center gap-2 transition-opacity ${isIOS ? '' : 'opacity-0 group-hover:opacity-100'}`}>
+                        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             {playingPath && (
                                 <button
                                     onClick={() => setShowShareModal(true)}
