@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestContext } from '@cloudflare/next-on-pages';
 
 export const runtime = 'edge';
-
-const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -13,11 +12,24 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // R2 Public URL로 직접 리다이렉트 (Worker 프록시 비용 제거)
-        const encodedPath = path.split('/').map(encodeURIComponent).join('/');
-        const downloadUrl = `${R2_PUBLIC_URL}/${encodedPath}`;
-        
-        return NextResponse.redirect(downloadUrl);
+        const { env } = getRequestContext();
+        const bucket = (env as any).VIDEOS as R2Bucket;
+        const object = await bucket.get(path);
+
+        if (!object) {
+            return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
+
+        const filename = path.split('/').pop() || 'video.mp4';
+        const encodedFilename = encodeURIComponent(filename);
+
+        return new Response(object.body as ReadableStream, {
+            headers: {
+                'Content-Type': 'video/mp4',
+                'Content-Disposition': `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`,
+                'Content-Length': object.size.toString(),
+            },
+        });
     } catch (error: any) {
         console.error('Download Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

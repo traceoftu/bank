@@ -344,22 +344,13 @@ function FolderBrowserContent() {
                             )}
                             {playingPath && (
                                 <button
-                                    onClick={async () => {
-                                        try {
-                                            const encodedPath = playingPath.split('/').map(encodeURIComponent).join('/');
-                                            const url = `https://videos.haebomsoft.com/${encodedPath}`;
-                                            const res = await fetch(url);
-                                            const blob = await res.blob();
-                                            const a = document.createElement('a');
-                                            a.href = URL.createObjectURL(blob);
-                                            a.download = playingPath.split('/').pop() || 'video.mp4';
-                                            a.click();
-                                            URL.revokeObjectURL(a.href);
-                                        } catch (err) {
-                                            // 폴백: 직접 열기
-                                            const encodedPath = playingPath.split('/').map(encodeURIComponent).join('/');
-                                            window.open(`https://videos.haebomsoft.com/${encodedPath}`, '_blank');
-                                        }
+                                    onClick={() => {
+                                        const url = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
+                                        const iframe = document.createElement('iframe');
+                                        iframe.style.display = 'none';
+                                        iframe.src = url;
+                                        document.body.appendChild(iframe);
+                                        setTimeout(() => iframe.remove(), 60000);
                                     }}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                     aria-label="Download video"
