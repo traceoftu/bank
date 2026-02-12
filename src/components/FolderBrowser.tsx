@@ -118,12 +118,15 @@ function FolderBrowserContent() {
             });
             hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (data.fatal) {
-                    console.error('HLS fatal error:', data);
+                    console.error('HLS fatal error, falling back to MP4');
                     hls.destroy();
                     hlsRef.current = null;
-                    // 폴백: 직접 재생 시도
-                    video.src = playingUrl;
-                    video.play().catch(() => {});
+                    // 폴백: 원본 MP4로 재생
+                    if (playingPath) {
+                        const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
+                        video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
+                        video.play().catch(() => {});
+                    }
                 }
             });
         } else if (isHlsUrl && video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -177,25 +180,13 @@ function FolderBrowserContent() {
     useEffect(() => {
         if (playParam) {
             setPlayingPath(playParam);
-            // HLS 경로 추론
+            // 항상 HLS URL로 설정 (HEAD 요청 제거)
             const dir = playParam.substring(0, playParam.lastIndexOf('/'));
             const filename = playParam.substring(playParam.lastIndexOf('/') + 1);
             const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
             const hlsPath = `${dir}/hls/${nameWithoutExt}/index.m3u8`;
             const hlsEncodedPath = hlsPath.split('/').map(encodeURIComponent).join('/');
-            const hlsUrl = `https://videos.haebomsoft.com/${hlsEncodedPath}`;
-
-            fetch(hlsUrl, { method: 'HEAD' })
-                .then(res => {
-                    if (res.ok) {
-                        setPlayingUrl(hlsUrl);
-                    } else {
-                        setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(playParam)}`);
-                    }
-                })
-                .catch(() => {
-                    setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(playParam)}`);
-                });
+            setPlayingUrl(`https://videos.haebomsoft.com/${hlsEncodedPath}`);
 
             // 조회수 증가 (중복 방지)
             incrementViewIfNeeded(playParam);
@@ -298,25 +289,15 @@ function FolderBrowserContent() {
         // 조회수 증가 (비동기, 독립 실행)
         incrementViewIfNeeded(path);
 
-        // path에서 HLS 경로 추론: 폴더/파일.mp4 → 폴더/hls/파일명/index.m3u8
+        // 항상 HLS URL로 설정 (HEAD 요청 제거 → 비용 절감)
+        // HLS 로딩 실패 시 hls.js 에러 핸들러에서 MP4로 자동 폴백
         const dir = path.substring(0, path.lastIndexOf('/'));
         const filename = path.substring(path.lastIndexOf('/') + 1);
         const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
         const hlsPath = `${dir}/hls/${nameWithoutExt}/index.m3u8`;
         const hlsEncodedPath = hlsPath.split('/').map(encodeURIComponent).join('/');
         const hlsUrl = `https://videos.haebomsoft.com/${hlsEncodedPath}`;
-
-        // HLS 파일 존재 여부 확인 (HEAD 요청)
-        try {
-            const res = await fetch(hlsUrl, { method: 'HEAD' });
-            if (res.ok) {
-                setPlayingUrl(hlsUrl);
-            } else {
-                setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(path)}`);
-            }
-        } catch {
-            setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(path)}`);
-        }
+        setPlayingUrl(hlsUrl);
     };
 
     return (
