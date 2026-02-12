@@ -357,17 +357,22 @@ function FolderBrowserContent() {
                                 </button>
                             )}
                             {playingPath && (
-                                <a
-                                    href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                <button
+                                    onClick={() => {
+                                        const url = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
+                                        const iframe = document.createElement('iframe');
+                                        iframe.style.display = 'none';
+                                        iframe.src = url;
+                                        document.body.appendChild(iframe);
+                                        setTimeout(() => iframe.remove(), 120000);
+                                    }}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                     aria-label="Download video"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
-                                </a>
+                                </button>
                             )}
                             <button
                                 onClick={() => {
