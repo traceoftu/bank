@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
         // 캐시된 홈 데이터 확인 (5분 캐시)
         const cachedHome = await kv.get('cache:home', 'json') as { data: any; timestamp: number } | null;
-        const CACHE_TTL = 60 * 60 * 1000; // 1시간
+        const CACHE_TTL = 5 * 60 * 1000; // 5분
 
         if (cachedHome && (Date.now() - cachedHome.timestamp) < CACHE_TTL) {
             return NextResponse.json({

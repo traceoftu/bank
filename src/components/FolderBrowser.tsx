@@ -281,7 +281,7 @@ function FolderBrowserContent() {
 
     const incrementViewIfNeeded = useCallback(async (path: string) => {
         try {
-            const COOLDOWN = 60 * 60 * 1000; // 1시간
+            const COOLDOWN = 5 * 60 * 1000; // 5분
             const storageKey = `viewed:${path}`;
             const lastViewed = localStorage.getItem(storageKey);
             if (lastViewed && Date.now() - parseInt(lastViewed, 10) < COOLDOWN) return;
