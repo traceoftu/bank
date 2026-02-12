@@ -197,8 +197,8 @@ function FolderBrowserContent() {
                     setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(playParam)}`);
                 });
 
-            // 조회수 증가
-            axios.post('/api/videos/views', { path: playParam }).catch(console.error);
+            // 조회수 증가 (중복 방지)
+            incrementViewIfNeeded(playParam);
             // URL에서 play 파라미터 제거
             router.replace('/', { scroll: false });
         }
@@ -279,6 +279,19 @@ function FolderBrowserContent() {
         }
     };
 
+    const incrementViewIfNeeded = useCallback(async (path: string) => {
+        try {
+            const COOLDOWN = 60 * 60 * 1000; // 1시간
+            const storageKey = `viewed:${path}`;
+            const lastViewed = localStorage.getItem(storageKey);
+            if (lastViewed && Date.now() - parseInt(lastViewed, 10) < COOLDOWN) return;
+            localStorage.setItem(storageKey, Date.now().toString());
+            await axios.post('/api/videos/views', { path });
+        } catch (err) {
+            console.error('Failed to increment view count:', err);
+        }
+    }, []);
+
     const handleVideoClick = async (path: string) => {
         setPlayingPath(path);
 
@@ -302,11 +315,7 @@ function FolderBrowserContent() {
             setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(path)}`);
         }
 
-        try {
-            await axios.post('/api/videos/views', { path });
-        } catch (err) {
-            console.error('Failed to increment view count:', err);
-        }
+        incrementViewIfNeeded(path);
     };
 
     return (

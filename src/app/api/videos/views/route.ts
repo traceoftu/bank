@@ -45,6 +45,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ views: 0, message: 'KV not configured' });
         }
 
+        // IP 기반 중복 방지 (1시간 쿨다운)
+        const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+        const ipHash = ip.split('.').slice(0, 3).join('.'); // /24 서브넷
+        const cooldownKey = `vc:${ipHash}:${path}`;
+        const lastView = await kv.get(cooldownKey);
+        
+        if (lastView) {
+            // 쿨다운 중 - KV 쓰기 없이 현재 조회수만 반환
+            const currentViews = await kv.get(`views:${path}`);
+            return NextResponse.json({ views: currentViews ? parseInt(currentViews, 10) : 0 });
+        }
+
+        // 쿨다운 키 설정 (1시간 TTL, 자동 삭제)
+        await kv.put(cooldownKey, '1', { expirationTtl: 3600 });
+
         const key = `views:${path}`;
         const currentViews = await kv.get(key);
         const newViews = (currentViews ? parseInt(currentViews, 10) : 0) + 1;
