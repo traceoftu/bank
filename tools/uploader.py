@@ -491,13 +491,6 @@ class UploaderApp:
                 
                 hls_success = self.convert_to_hls(actual_file, hls_temp_dir)
                 
-                # 압축 파일 삭제
-                if compressed_path and os.path.exists(compressed_path):
-                    try:
-                        os.remove(compressed_path)
-                    except:
-                        pass
-                
                 if not hls_success:
                     self.log(f"  ⚠️ HLS 변환 실패, 원본 MP4로 업로드")
                     # 폴백: 원본 MP4 업로드
@@ -535,6 +528,13 @@ class UploaderApp:
                         continue
                     
                     self.log(f"  ✅ HLS 업로드 완료")
+                
+                # 압축 파일 삭제 (업로드 완료 후)
+                if compressed_path and os.path.exists(compressed_path):
+                    try:
+                        os.remove(compressed_path)
+                    except:
+                        pass
                 
                 # HLS 임시 디렉토리 정리
                 shutil.rmtree(hls_temp_dir, ignore_errors=True)
