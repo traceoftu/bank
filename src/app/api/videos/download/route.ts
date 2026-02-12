@@ -50,34 +50,39 @@ export async function GET(request: NextRequest) {
         }
         
         const hlsDir = `${dir}/hls/${nameWithoutExt}`;
-        const stream = new ReadableStream({
-            async start(controller) {
-                try {
-                    for (const tsFile of tsFiles) {
-                        const tsEncoded = `${hlsDir}/${tsFile}`.split('/').map(encodeURIComponent).join('/');
-                        const tsRes = await fetch(`${R2_PUBLIC_URL}/${tsEncoded}`);
-                        if (tsRes.ok && tsRes.body) {
-                            const reader = tsRes.body.getReader();
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                controller.enqueue(value);
-                            }
+        
+        // ts 파일들을 순서대로 합쳐서 하나의 스트림으로 제공
+        const { readable, writable } = new TransformStream();
+        const writer = writable.getWriter();
+        
+        // 백그라운드에서 ts 파일들을 순차적으로 스트리밍
+        (async () => {
+            try {
+                for (const tsFile of tsFiles) {
+                    const tsEncoded = `${hlsDir}/${tsFile}`.split('/').map(encodeURIComponent).join('/');
+                    const tsRes = await fetch(`${R2_PUBLIC_URL}/${tsEncoded}`);
+                    if (tsRes.ok && tsRes.body) {
+                        const reader = tsRes.body.getReader();
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            await writer.write(value);
                         }
                     }
-                    controller.close();
-                } catch (err) {
-                    controller.error(err);
                 }
+            } catch (err) {
+                console.error('Download stream error:', err);
+            } finally {
+                await writer.close();
             }
-        });
+        })();
         
-        const tsFileName = `${nameWithoutExt}.ts`;
+        const downloadFileName = `${nameWithoutExt}.mp4`;
         const headers = new Headers();
-        headers.set('Content-Type', 'video/mp2t');
-        headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(tsFileName)}`);
+        headers.set('Content-Type', 'video/mp4');
+        headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(downloadFileName)}`);
         
-        return new NextResponse(stream, { status: 200, headers });
+        return new NextResponse(readable, { status: 200, headers });
     } catch (error: any) {
         console.error('Download Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

@@ -360,7 +360,7 @@ function FolderBrowserContent() {
                                     </svg>
                                 </button>
                             )}
-                            {playingPath && (
+                            {isIOS && playingPath && (
                                 <a
                                     href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
                                     download
@@ -393,6 +393,20 @@ function FolderBrowserContent() {
                             autoPlay
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"
                         />
+                        {/* 우측하단 다운로드 버튼 (PC/Android) */}
+                        {!isIOS && playingPath && (
+                            <a
+                                href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
+                                download
+                                className="absolute bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-2 text-sm text-white bg-zinc-800/70 hover:bg-zinc-700/90 rounded-lg cursor-pointer backdrop-blur-md transition-opacity opacity-0 group-hover:opacity-100"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                다운로드
+                            </a>
+                        )}
                     </div>
                 </div>
             )}
