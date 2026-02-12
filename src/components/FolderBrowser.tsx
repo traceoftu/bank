@@ -82,7 +82,7 @@ function FolderBrowserContent() {
     const [isIOS, setIsIOS] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [canCast, setCanCast] = useState(false);
-    const [showDownloadToast, setShowDownloadToast] = useState(false);
+    const [isMp4Mode, setIsMp4Mode] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
 
@@ -327,6 +327,7 @@ function FolderBrowserContent() {
                         }
                         setPlayingUrl(null);
                         setPlayingPath(null);
+                        setIsMp4Mode(false);
                     }}
                 >
                     <div
@@ -371,20 +372,21 @@ function FolderBrowserContent() {
                                             video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
                                             video.currentTime = currentTime;
                                             video.play().catch(() => {});
+                                            setIsMp4Mode(true);
                                         }
-                                        // 다운로드 시작
-                                        const iframe = document.createElement('iframe');
-                                        iframe.style.display = 'none';
-                                        iframe.src = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
-                                        document.body.appendChild(iframe);
-                                        setTimeout(() => iframe.remove(), 120000);
                                     }}
-                                    className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
+                                    className={`flex items-center justify-center w-10 h-10 text-white transition-colors rounded-full cursor-pointer backdrop-blur-md ${isMp4Mode ? 'bg-green-600/80 hover:bg-green-500/80' : 'bg-zinc-800/50 hover:bg-zinc-700/80'}`}
                                     aria-label="Download video"
                                 >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
+                                    {isMp4Mode ? (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    ) : (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                    )}
                                 </button>
                             )}
                             <button
@@ -395,6 +397,7 @@ function FolderBrowserContent() {
                                     }
                                     setPlayingUrl(null);
                                     setPlayingPath(null);
+                                    setIsMp4Mode(false);
                                 }}
                                 className="flex items-center justify-center w-10 h-10 text-xl font-bold text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                 aria-label="Close video"
@@ -409,12 +412,6 @@ function FolderBrowserContent() {
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"
                         />
                     </div>
-                </div>
-            )}
-
-            {showDownloadToast && (
-                <div style={{position:'fixed',bottom:'6rem',left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'rgba(0,0,0,0.9)',color:'#fff',fontSize:'14px',padding:'12px 20px',borderRadius:'12px',boxShadow:'0 4px 12px rgba(0,0,0,0.3)',whiteSpace:'nowrap'}}>
-                    MP4로 전환됨 · 하단 ⋮ 메뉴에서 다운로드/전송 가능
                 </div>
             )}
 
