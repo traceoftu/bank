@@ -343,16 +343,31 @@ function FolderBrowserContent() {
                                 </button>
                             )}
                             {playingPath && (
-                                <a
-                                    href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
-                                    download
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const encodedPath = playingPath.split('/').map(encodeURIComponent).join('/');
+                                            const url = `https://videos.haebomsoft.com/${encodedPath}`;
+                                            const res = await fetch(url);
+                                            const blob = await res.blob();
+                                            const a = document.createElement('a');
+                                            a.href = URL.createObjectURL(blob);
+                                            a.download = playingPath.split('/').pop() || 'video.mp4';
+                                            a.click();
+                                            URL.revokeObjectURL(a.href);
+                                        } catch (err) {
+                                            // 폴백: 직접 열기
+                                            const encodedPath = playingPath.split('/').map(encodeURIComponent).join('/');
+                                            window.open(`https://videos.haebomsoft.com/${encodedPath}`, '_blank');
+                                        }
+                                    }}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                     aria-label="Download video"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
-                                </a>
+                                </button>
                             )}
                             <button
                                 onClick={() => {
