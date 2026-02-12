@@ -361,16 +361,22 @@ function FolderBrowserContent() {
                                     onClick={() => {
                                         const video = videoRef.current;
                                         if (!video) return;
-                                        // HLS 중지 → MP4 직접 재생 전환
+                                        // HLS 중지 → MP4 직접 재생 전환 (전송/다운로드 메뉴 활성화)
                                         if (hlsRef.current) {
                                             hlsRef.current.destroy();
                                             hlsRef.current = null;
                                         }
                                         const currentTime = video.currentTime;
                                         const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
-                                        video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
+                                        const mp4Url = `https://videos.haebomsoft.com/${mp4Encoded}`;
+                                        video.src = mp4Url;
                                         video.currentTime = currentTime;
                                         video.play().catch(() => {});
+                                        // 동시에 다운로드 시작
+                                        const a = document.createElement('a');
+                                        a.href = mp4Url;
+                                        a.download = playingPath.split('/').pop() || 'video.mp4';
+                                        a.click();
                                     }}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                     aria-label="Download video"
