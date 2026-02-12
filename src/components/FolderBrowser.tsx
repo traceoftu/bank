@@ -375,8 +375,12 @@ function FolderBrowserContent() {
                                             setShowDownloadToast(true);
                                             setTimeout(() => setShowDownloadToast(false), 5000);
                                         } else {
-                                            // 2차: 이미 MP4 → 새 탭에서 다운로드
-                                            window.open(mp4Url, '_blank');
+                                            // 2차: 이미 MP4 → iframe으로 다운로드
+                                            const iframe = document.createElement('iframe');
+                                            iframe.style.display = 'none';
+                                            iframe.src = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
+                                            document.body.appendChild(iframe);
+                                            setTimeout(() => iframe.remove(), 120000);
                                         }
                                     }}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
@@ -408,12 +412,13 @@ function FolderBrowserContent() {
                             autoPlay
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"
                         />
-                        {showDownloadToast && (
-                            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-black/90 text-white text-sm px-4 py-2 rounded-lg backdrop-blur-md whitespace-nowrap animate-in fade-in duration-200 z-50">
-                                하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다
-                            </div>
-                        )}
                     </div>
+                </div>
+            )}
+
+            {showDownloadToast && (
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black/90 text-white text-sm px-5 py-3 rounded-xl backdrop-blur-md shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    MP4로 전환됨 · 하단 ⋮ 메뉴에서 다운로드/전송 가능
                 </div>
             )}
 
