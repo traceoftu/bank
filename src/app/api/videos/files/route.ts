@@ -91,7 +91,9 @@ export async function POST(request: NextRequest) {
             // 이 작업은 관리자가 수동으로 실행
             const bucket = (env as any).VIDEOS as R2Bucket;
             const syncedFiles: any[] = [];
+            const addedPaths = new Set<string>();
 
+            // 1. 썸네일 기반 스캔 (기존 MP4 + HLS 모두)
             let cursor: string | undefined;
             do {
                 const listed = await bucket.list({ 
@@ -107,14 +109,26 @@ export async function POST(request: NextRequest) {
                         if (parts.length >= 2) {
                             const category = parts[0];
                             const name = parts[parts.length - 1];
-
-                            syncedFiles.push({
-                                path: thumbPath,
-                                name,
-                                size: object.size,
-                                category,
-                                uploadedAt: object.uploaded?.getTime() || Date.now(),
-                            });
+                            
+                            // HLS 폴더가 있는지 확인 (파일명에서 확장자 제거한 폴더)
+                            const nameWithoutExt = name.replace(/\.[^.]+$/, '');
+                            const hlsPath = thumbPath.replace(name, `${nameWithoutExt}/index.m3u8`);
+                            
+                            // HLS m3u8 파일 존재 여부 확인
+                            const hlsObj = await bucket.head(hlsPath);
+                            
+                            const filePath = hlsObj ? hlsPath : thumbPath;
+                            
+                            if (!addedPaths.has(filePath)) {
+                                addedPaths.add(filePath);
+                                syncedFiles.push({
+                                    path: filePath,
+                                    name,
+                                    size: object.size,
+                                    category,
+                                    uploadedAt: object.uploaded?.getTime() || Date.now(),
+                                });
+                            }
                         }
                     }
                 }

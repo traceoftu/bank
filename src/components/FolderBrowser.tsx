@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Hls from 'hls.js';
 import VideoCard from './VideoCard';
 import { InlineAdCard } from './ads';
 
@@ -82,12 +83,66 @@ function FolderBrowserContent() {
     const [showShareModal, setShowShareModal] = useState(false);
     const [canCast, setCanCast] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const hlsRef = useRef<Hls | null>(null);
 
     useEffect(() => {
         // iOS 감지
         const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         setIsIOS(checkIOS);
     }, []);
+
+    // HLS 재생 처리
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || !playingUrl) return;
+
+        // 이전 HLS 인스턴스 정리
+        if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+        }
+
+        const isHlsUrl = playingUrl.endsWith('.m3u8') || playingUrl.includes('.m3u8');
+
+        if (isHlsUrl && Hls.isSupported()) {
+            // HLS.js로 재생 (Android, Desktop)
+            const hls = new Hls({
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+            });
+            hlsRef.current = hls;
+            hls.loadSource(playingUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(() => {});
+            });
+            hls.on(Hls.Events.ERROR, (_event, data) => {
+                if (data.fatal) {
+                    console.error('HLS fatal error:', data);
+                    hls.destroy();
+                    hlsRef.current = null;
+                    // 폴백: 직접 재생 시도
+                    video.src = playingUrl;
+                    video.play().catch(() => {});
+                }
+            });
+        } else if (isHlsUrl && video.canPlayType('application/vnd.apple.mpegurl')) {
+            // iOS Safari 네이티브 HLS 지원
+            video.src = playingUrl;
+            video.play().catch(() => {});
+        } else {
+            // 일반 MP4
+            video.src = playingUrl;
+            video.play().catch(() => {});
+        }
+
+        return () => {
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
+            }
+        };
+    }, [playingUrl]);
 
     // Remote Playback API 지원 확인 및 캐스팅 기능
     useEffect(() => {
@@ -121,8 +176,13 @@ function FolderBrowserContent() {
     // 공유 링크로 접속 시 자동 재생
     useEffect(() => {
         if (playParam) {
-            const streamApiUrl = `/api/videos/stream?path=${encodeURIComponent(playParam)}`;
-            setPlayingUrl(streamApiUrl);
+            const isHls = playParam.endsWith('.m3u8');
+            if (isHls) {
+                const encodedPath = playParam.split('/').map(encodeURIComponent).join('/');
+                setPlayingUrl(`https://videos.haebomsoft.com/${encodedPath}`);
+            } else {
+                setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(playParam)}`);
+            }
             setPlayingPath(playParam);
             // 조회수 증가
             axios.post('/api/videos/views', { path: playParam }).catch(console.error);
@@ -207,8 +267,14 @@ function FolderBrowserContent() {
     };
 
     const handleVideoClick = async (path: string) => {
-        const streamApiUrl = `/api/videos/stream?path=${encodeURIComponent(path)}`;
-        setPlayingUrl(streamApiUrl);
+        // HLS(.m3u8) 파일인 경우 R2 Public URL 직접 사용
+        const isHls = path.endsWith('.m3u8');
+        if (isHls) {
+            const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+            setPlayingUrl(`https://videos.haebomsoft.com/${encodedPath}`);
+        } else {
+            setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(path)}`);
+        }
         setPlayingPath(path);
 
         try {
@@ -224,6 +290,10 @@ function FolderBrowserContent() {
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl bg-black/60 animate-in fade-in duration-200"
                     onClick={() => {
+                        if (hlsRef.current) {
+                            hlsRef.current.destroy();
+                            hlsRef.current = null;
+                        }
                         setPlayingUrl(null);
                         setPlayingPath(null);
                     }}
@@ -270,6 +340,10 @@ function FolderBrowserContent() {
                             )}
                             <button
                                 onClick={() => {
+                                    if (hlsRef.current) {
+                                        hlsRef.current.destroy();
+                                        hlsRef.current = null;
+                                    }
                                     setPlayingUrl(null);
                                     setPlayingPath(null);
                                 }}
@@ -281,7 +355,6 @@ function FolderBrowserContent() {
                         </div>
                         <video
                             ref={videoRef}
-                            src={playingUrl}
                             controls
                             autoPlay
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"

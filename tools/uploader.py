@@ -15,6 +15,9 @@ from pathlib import Path
 import json
 import urllib.request
 import urllib.error
+import shutil
+import glob
+import tempfile
 
 # Windows에서 subprocess 콘솔 창 숨기기
 if sys.platform == 'win32':
@@ -128,6 +131,19 @@ class UploaderApp:
         
         self.thumbnail_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(option_frame, text="썸네일 자동 생성 및 업로드", variable=self.thumbnail_var).pack(anchor=tk.W)
+        
+        # 압축 옵션
+        compress_frame = ttk.Frame(option_frame)
+        compress_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        self.compress_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(compress_frame, text="H.265 자동 압축 (NVENC GPU)", variable=self.compress_var).pack(side=tk.LEFT)
+        
+        ttk.Label(compress_frame, text="화질:").pack(side=tk.LEFT, padx=(20, 5))
+        self.quality_var = tk.StringVar(value="균형 (CRF 23)")
+        quality_combo = ttk.Combobox(compress_frame, textvariable=self.quality_var, width=20, state="readonly",
+                                      values=["고화질 (CRF 18)", "균형 (CRF 23)", "용량 우선 (CRF 28)"])
+        quality_combo.pack(side=tk.LEFT)
         
         # === 진행 상황 ===
         progress_frame = ttk.LabelFrame(main_frame, text="4. 진행 상황", padding="10")
@@ -288,6 +304,124 @@ class UploaderApp:
         thread.daemon = True
         thread.start()
     
+    def get_crf_value(self):
+        """화질 설정에서 CRF 값 추출"""
+        quality = self.quality_var.get()
+        if "18" in quality:
+            return "18"
+        elif "28" in quality:
+            return "28"
+        return "23"  # 기본값
+    
+    def get_video_codec(self, file_path):
+        """ffprobe로 영상 코덱 확인"""
+        try:
+            cmd = [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=codec_name",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                file_path
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                creationflags=SUBPROCESS_FLAGS
+            )
+            if result.returncode == 0:
+                return result.stdout.strip().lower()
+        except:
+            pass
+        return "unknown"
+    
+    def should_skip_compression(self, file_path):
+        """압축 스킵 여부 확인: 600MB 이하면 스킵 (이미 최적화된 파일)"""
+        # 파일 크기 확인 (MB)
+        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+        
+        # 코덱 확인
+        codec = self.get_video_codec(file_path)
+        
+        # 600MB 이하면 스킵 (H.264, H.265 모두)
+        if file_size_mb <= 600:
+            return True, codec, file_size_mb
+        
+        return False, codec, file_size_mb
+    
+    def convert_to_hls(self, input_path, output_dir):
+        """MP4를 HLS(m3u8 + ts)로 변환"""
+        os.makedirs(output_dir, exist_ok=True)
+        m3u8_path = os.path.join(output_dir, "index.m3u8")
+        
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", input_path,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-hls_time", "10",
+            "-hls_list_size", "0",
+            "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
+            "-f", "hls",
+            m3u8_path
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=False,
+            creationflags=SUBPROCESS_FLAGS
+        )
+        
+        return result.returncode == 0 and os.path.exists(m3u8_path)
+    
+    def upload_hls_files(self, hls_dir, remote_path):
+        """HLS 파일들을 R2에 업로드"""
+        # rclone copy로 폴더 전체 업로드
+        result = subprocess.run(
+            ["rclone", "copy", hls_dir, f"{R2_BUCKET}/{remote_path}/",
+             "--transfers", "8", "--checkers", "16"],
+            capture_output=True, text=False,
+            creationflags=SUBPROCESS_FLAGS
+        )
+        return result.returncode == 0
+    
+    def compress_video(self, input_path, output_path):
+        """NVENC H.265로 영상 압축"""
+        crf = self.get_crf_value()
+        
+        # 비트레이트 제한 설정 (CRF별)
+        # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps
+        bitrate_map = {"18": "8M", "23": "4M", "28": "2M"}
+        maxrate = bitrate_map.get(crf, "4M")
+        bufsize = maxrate  # bufsize = maxrate와 동일
+        
+        # NVENC H.265 압축 명령어 (VBR 모드 + 비트레이트 제한)
+        cmd = [
+            "ffmpeg", "-y",
+            "-hwaccel", "cuda",
+            "-i", input_path,
+            "-c:v", "hevc_nvenc",
+            "-preset", "p4",
+            "-rc", "vbr",
+            "-cq", crf,
+            "-maxrate", maxrate,
+            "-bufsize", bufsize,
+            "-c:a", "aac",
+            "-b:a", "128k",
+            output_path
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=False,
+            creationflags=SUBPROCESS_FLAGS
+        )
+        
+        return result.returncode == 0
+    
     def upload_files(self, upload_path):
         total = len(self.selected_files)
         success = 0
@@ -297,21 +431,106 @@ class UploaderApp:
         
         for i, file_path in enumerate(self.selected_files):
             filename = os.path.basename(file_path)
-            self.status_label.configure(text=f"[{i+1}/{total}] {filename} 업로드 중...")
+            self.status_label.configure(text=f"[{i+1}/{total}] {filename} 처리 중...")
             self.progress_var.set((i / total) * 100)
             
             try:
-                # 1. 영상 업로드
-                self.log(f"[{i+1}/{total}] {filename} 업로드 중...")
-                result = subprocess.run(
-                    ["rclone", "copy", file_path, f"{R2_BUCKET}/{upload_path}/"],
-                    capture_output=True, text=False,
-                    creationflags=SUBPROCESS_FLAGS
-                )
+                actual_file = file_path
+                compressed_path = None
                 
-                if result.returncode != 0:
-                    self.log(f"  ❌ 업로드 실패")
-                    failed += 1
+                # 압축 옵션이 켜져 있으면 먼저 압축
+                if self.compress_var.get():
+                    # 코덱 및 크기 체크 - H.265/HEVC이고 600MB 이하면 스킵
+                    skip, codec, file_size_mb = self.should_skip_compression(file_path)
+                    
+                    if skip:
+                        self.log(f"[{i+1}/{total}] {filename} - HEVC {file_size_mb:.0f}MB (압축 불필요)")
+                    else:
+                        self.log(f"[{i+1}/{total}] {filename} 압축 중... ({codec} → H.265 NVENC)")
+                        self.status_label.configure(text=f"[{i+1}/{total}] {filename} 압축 중...")
+                        
+                        # 압축된 파일 경로
+                        name, ext = os.path.splitext(filename)
+                        compressed_path = os.path.join(os.environ.get('TEMP', '/tmp'), f"{name}_compressed.mp4")
+                        
+                        # 원본 크기
+                        original_size = os.path.getsize(file_path) / (1024 * 1024)  # MB
+                        
+                        if self.compress_video(file_path, compressed_path):
+                            if os.path.exists(compressed_path):
+                                compressed_size = os.path.getsize(compressed_path) / (1024 * 1024)  # MB
+                                
+                                # 압축 결과가 원본보다 크면 원본 사용
+                                if compressed_size >= original_size:
+                                    self.log(f"  ⚠️ 이미 최적화된 파일 (압축 스킵): {original_size:.1f}MB")
+                                    try:
+                                        os.remove(compressed_path)
+                                    except:
+                                        pass
+                                    compressed_path = None
+                                else:
+                                    reduction = (1 - compressed_size / original_size) * 100
+                                    self.log(f"  ✅ 압축 완료: {original_size:.1f}MB → {compressed_size:.1f}MB ({reduction:.0f}% 감소)")
+                                    actual_file = compressed_path
+                            else:
+                                self.log(f"  ⚠️ 압축 실패, 원본으로 업로드")
+                        else:
+                            self.log(f"  ⚠️ 압축 실패, 원본으로 업로드")
+                
+                # 1. HLS 변환 및 업로드
+                self.log(f"[{i+1}/{total}] {filename} HLS 변환 중...")
+                self.status_label.configure(text=f"[{i+1}/{total}] {filename} HLS 변환 중...")
+                
+                # HLS 변환용 임시 디렉토리
+                name_without_ext = os.path.splitext(filename)[0]
+                hls_temp_dir = os.path.join(tempfile.gettempdir(), f"hls_{name_without_ext}")
+                
+                # 기존 임시 디렉토리 정리
+                if os.path.exists(hls_temp_dir):
+                    shutil.rmtree(hls_temp_dir, ignore_errors=True)
+                
+                hls_success = self.convert_to_hls(actual_file, hls_temp_dir)
+                
+                # 압축 파일 삭제
+                if compressed_path and os.path.exists(compressed_path):
+                    try:
+                        os.remove(compressed_path)
+                    except:
+                        pass
+                
+                if not hls_success:
+                    self.log(f"  ⚠️ HLS 변환 실패, 원본 MP4로 업로드")
+                    # 폴백: 원본 MP4 업로드
+                    result = subprocess.run(
+                        ["rclone", "copy", actual_file, f"{R2_BUCKET}/{upload_path}/"],
+                        capture_output=True, text=False,
+                        creationflags=SUBPROCESS_FLAGS
+                    )
+                    if result.returncode != 0:
+                        self.log(f"  ❌ 업로드 실패")
+                        failed += 1
+                        shutil.rmtree(hls_temp_dir, ignore_errors=True)
+                        continue
+                else:
+                    # HLS 파일 업로드
+                    ts_files = glob.glob(os.path.join(hls_temp_dir, "*.ts"))
+                    self.log(f"  📤 HLS 업로드 중... (m3u8 + {len(ts_files)}개 세그먼트)")
+                    self.status_label.configure(text=f"[{i+1}/{total}] {filename} HLS 업로드 중...")
+                    
+                    hls_remote_path = f"{upload_path}/{name_without_ext}"
+                    if not self.upload_hls_files(hls_temp_dir, hls_remote_path):
+                        self.log(f"  ❌ HLS 업로드 실패")
+                        failed += 1
+                        shutil.rmtree(hls_temp_dir, ignore_errors=True)
+                        continue
+                    
+                    self.log(f"  ✅ HLS 업로드 완료")
+                
+                # HLS 임시 디렉토리 정리
+                shutil.rmtree(hls_temp_dir, ignore_errors=True)
+                
+                upload_failed = False
+                if upload_failed:
                     continue
                 
                 # 2. 썸네일 생성 및 업로드
@@ -352,8 +571,11 @@ class UploaderApp:
                 self.log(f"  ✅ 완료")
                 success += 1
                 
-                # 3. KV에 파일 정보 등록
-                self.register_file_to_kv(upload_path, filename)
+                # 3. KV에 파일 정보 등록 (HLS 경로로 등록)
+                if hls_success:
+                    self.register_file_to_kv(upload_path, filename, hls_path=f"{name_without_ext}/index.m3u8")
+                else:
+                    self.register_file_to_kv(upload_path, filename)
                 
             except Exception as e:
                 self.log(f"  ❌ 오류: {e}")
@@ -370,17 +592,18 @@ class UploaderApp:
         
         messagebox.showinfo("완료", f"업로드 완료!\n성공: {success}개\n실패: {failed}개")
     
-    def register_file_to_kv(self, upload_path, filename):
+    def register_file_to_kv(self, upload_path, filename, hls_path=None):
         """KV에 파일 정보 등록"""
         try:
             # 카테고리 추출 (upload_path의 첫 번째 부분)
             category = upload_path.split('/')[0]
             
-            # 파일 정보
+            # 파일 정보 (HLS인 경우 m3u8 경로 사용)
+            file_path = f"{upload_path}/{hls_path}" if hls_path else f"{upload_path}/{filename}"
             file_info = {
-                "path": f"{upload_path}/{filename}",
+                "path": file_path,
                 "name": filename,
-                "size": 0,  # 썸네일 크기는 중요하지 않음
+                "size": 0,
                 "category": category
             }
             
