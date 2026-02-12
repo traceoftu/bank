@@ -362,26 +362,22 @@ function FolderBrowserContent() {
                                     onClick={() => {
                                         const video = videoRef.current;
                                         if (!video) return;
-                                        const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
-                                        const mp4Url = `https://videos.haebomsoft.com/${mp4Encoded}`;
+                                        // HLS → MP4 전환 (이미 MP4면 스킵)
                                         if (hlsRef.current) {
-                                            // 1차: HLS → MP4 전환 + 안내
                                             hlsRef.current.destroy();
                                             hlsRef.current = null;
                                             const currentTime = video.currentTime;
-                                            video.src = mp4Url;
+                                            const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
+                                            video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
                                             video.currentTime = currentTime;
                                             video.play().catch(() => {});
-                                            setShowDownloadToast(true);
-                                            setTimeout(() => setShowDownloadToast(false), 5000);
-                                        } else {
-                                            // 2차: 이미 MP4 → iframe으로 다운로드
-                                            const iframe = document.createElement('iframe');
-                                            iframe.style.display = 'none';
-                                            iframe.src = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
-                                            document.body.appendChild(iframe);
-                                            setTimeout(() => iframe.remove(), 120000);
                                         }
+                                        // 다운로드 시작
+                                        const iframe = document.createElement('iframe');
+                                        iframe.style.display = 'none';
+                                        iframe.src = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
+                                        document.body.appendChild(iframe);
+                                        setTimeout(() => iframe.remove(), 120000);
                                     }}
                                     className="flex items-center justify-center w-10 h-10 text-white transition-colors bg-zinc-800/50 hover:bg-zinc-700/80 rounded-full cursor-pointer backdrop-blur-md"
                                     aria-label="Download video"
