@@ -298,7 +298,7 @@ class HLSConverterApp:
                 self.log(f"  📤 HLS 업로드 중...")
                 self.status_label.configure(text=f"[{i+1}/{total}] {filename} HLS 업로드 중...")
                 
-                hls_remote_path = f"{remote_dir}/{name_without_ext}"
+                hls_remote_path = f"{remote_dir}/hls/{name_without_ext}"
                 upload_result = subprocess.run(
                     ["rclone", "copy", hls_dir, f"{R2_BUCKET}/{hls_remote_path}/",
                      "--transfers", "8", "--checkers", "16"],

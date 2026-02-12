@@ -517,7 +517,7 @@ class UploaderApp:
                     self.log(f"  📤 HLS 업로드 중... (m3u8 + {len(ts_files)}개 세그먼트)")
                     self.status_label.configure(text=f"[{i+1}/{total}] {filename} HLS 업로드 중...")
                     
-                    hls_remote_path = f"{upload_path}/{name_without_ext}"
+                    hls_remote_path = f"{upload_path}/hls/{name_without_ext}"
                     if not self.upload_hls_files(hls_temp_dir, hls_remote_path):
                         self.log(f"  ❌ HLS 업로드 실패")
                         failed += 1
@@ -573,7 +573,7 @@ class UploaderApp:
                 
                 # 3. KV에 파일 정보 등록 (HLS 경로로 등록)
                 if hls_success:
-                    self.register_file_to_kv(upload_path, filename, hls_path=f"{name_without_ext}/index.m3u8")
+                    self.register_file_to_kv(upload_path, filename, hls_path=f"hls/{name_without_ext}/index.m3u8")
                 else:
                     self.register_file_to_kv(upload_path, filename)
                 
@@ -788,7 +788,17 @@ class UploaderApp:
                         creationflags=SUBPROCESS_FLAGS
                     )
                     
-                    # 2. 썸네일 삭제
+                    # 2. HLS 폴더 삭제 (hls/영상명 폴더에 m3u8 + ts 파일들)
+                    name_without_ext = os.path.splitext(os.path.basename(file_path))[0]
+                    dir_path = os.path.dirname(file_path)
+                    hls_folder = f"{dir_path}/hls/{name_without_ext}" if dir_path else f"hls/{name_without_ext}"
+                    subprocess.run(
+                        ["rclone", "purge", f"{R2_BUCKET}/{hls_folder}"],
+                        capture_output=True, text=False,
+                        creationflags=SUBPROCESS_FLAGS
+                    )
+                    
+                    # 3. 썸네일 삭제
                     thumb_path = f"thumbnails/{file_path}.jpg"
                     subprocess.run(
                         ["rclone", "deletefile", f"{R2_BUCKET}/{thumb_path}"],

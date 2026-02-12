@@ -110,9 +110,10 @@ export async function POST(request: NextRequest) {
                             const category = parts[0];
                             const name = parts[parts.length - 1];
                             
-                            // HLS 폴더가 있는지 확인 (파일명에서 확장자 제거한 폴더)
+                            // HLS 폴더가 있는지 확인 (hls/파일명 폴더)
                             const nameWithoutExt = name.replace(/\.[^.]+$/, '');
-                            const hlsPath = thumbPath.replace(name, `${nameWithoutExt}/index.m3u8`);
+                            const dirPath = thumbPath.substring(0, thumbPath.lastIndexOf('/'));
+                            const hlsPath = `${dirPath}/hls/${nameWithoutExt}/index.m3u8`;
                             
                             // HLS m3u8 파일 존재 여부 확인
                             const hlsObj = await bucket.head(hlsPath);
