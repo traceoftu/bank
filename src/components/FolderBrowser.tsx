@@ -417,7 +417,7 @@ function FolderBrowserContent() {
             )}
 
             {showDownloadToast && (
-                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black/90 text-white text-sm px-5 py-3 rounded-xl backdrop-blur-md shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div style={{position:'fixed',bottom:'6rem',left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'rgba(0,0,0,0.9)',color:'#fff',fontSize:'14px',padding:'12px 20px',borderRadius:'12px',boxShadow:'0 4px 12px rgba(0,0,0,0.3)',whiteSpace:'nowrap'}}>
                     MP4로 전환됨 · 하단 ⋮ 메뉴에서 다운로드/전송 가능
                 </div>
             )}
