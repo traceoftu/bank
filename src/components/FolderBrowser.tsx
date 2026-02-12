@@ -351,7 +351,7 @@ function FolderBrowserContent() {
                                     </svg>
                                 </button>
                             )}
-                            {isIOS && playingPath && (
+                            {playingPath && (
                                 <a
                                     href={`/api/videos/download?path=${encodeURIComponent(playingPath)}`}
                                     download
