@@ -118,17 +118,20 @@ export async function POST(request: NextRequest) {
                             // HLS m3u8 파일 존재 여부 확인
                             const hlsObj = await bucket.head(hlsPath);
                             
-                            const filePath = hlsObj ? hlsPath : thumbPath;
-                            
-                            if (!addedPaths.has(filePath)) {
-                                addedPaths.add(filePath);
-                                syncedFiles.push({
-                                    path: filePath,
+                            // path는 항상 MP4 경로, HLS는 별도 필드
+                            if (!addedPaths.has(thumbPath)) {
+                                addedPaths.add(thumbPath);
+                                const fileEntry: any = {
+                                    path: thumbPath,
                                     name,
                                     size: object.size,
                                     category,
                                     uploadedAt: object.uploaded?.getTime() || Date.now(),
-                                });
+                                };
+                                if (hlsObj) {
+                                    fileEntry.hls = hlsPath;
+                                }
+                                syncedFiles.push(fileEntry);
                             }
                         }
                     }

@@ -571,9 +571,9 @@ class UploaderApp:
                 self.log(f"  ✅ 완료")
                 success += 1
                 
-                # 3. KV에 파일 정보 등록 (HLS 경로로 등록)
+                # 3. KV에 파일 정보 등록
                 if hls_success:
-                    self.register_file_to_kv(upload_path, filename, hls_path=f"hls/{name_without_ext}/index.m3u8")
+                    self.register_file_to_kv(upload_path, filename, hls_path=f"{upload_path}/hls/{name_without_ext}/index.m3u8")
                 else:
                     self.register_file_to_kv(upload_path, filename)
                 
@@ -598,14 +598,15 @@ class UploaderApp:
             # 카테고리 추출 (upload_path의 첫 번째 부분)
             category = upload_path.split('/')[0]
             
-            # 파일 정보 (HLS인 경우 m3u8 경로 사용)
-            file_path = f"{upload_path}/{hls_path}" if hls_path else f"{upload_path}/{filename}"
+            # 파일 정보 (path는 항상 MP4 경로, HLS는 별도 필드)
             file_info = {
-                "path": file_path,
+                "path": f"{upload_path}/{filename}",
                 "name": filename,
                 "size": 0,
                 "category": category
             }
+            if hls_path:
+                file_info["hls"] = hls_path
             
             # API 호출
             data = json.dumps({

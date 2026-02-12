@@ -176,14 +176,27 @@ function FolderBrowserContent() {
     // 공유 링크로 접속 시 자동 재생
     useEffect(() => {
         if (playParam) {
-            const isHls = playParam.endsWith('.m3u8');
-            if (isHls) {
-                const encodedPath = playParam.split('/').map(encodeURIComponent).join('/');
-                setPlayingUrl(`https://videos.haebomsoft.com/${encodedPath}`);
-            } else {
-                setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(playParam)}`);
-            }
             setPlayingPath(playParam);
+            // HLS 경로 추론
+            const dir = playParam.substring(0, playParam.lastIndexOf('/'));
+            const filename = playParam.substring(playParam.lastIndexOf('/') + 1);
+            const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
+            const hlsPath = `${dir}/hls/${nameWithoutExt}/index.m3u8`;
+            const hlsEncodedPath = hlsPath.split('/').map(encodeURIComponent).join('/');
+            const hlsUrl = `https://videos.haebomsoft.com/${hlsEncodedPath}`;
+
+            fetch(hlsUrl, { method: 'HEAD' })
+                .then(res => {
+                    if (res.ok) {
+                        setPlayingUrl(hlsUrl);
+                    } else {
+                        setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(playParam)}`);
+                    }
+                })
+                .catch(() => {
+                    setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(playParam)}`);
+                });
+
             // 조회수 증가
             axios.post('/api/videos/views', { path: playParam }).catch(console.error);
             // URL에서 play 파라미터 제거
@@ -267,15 +280,27 @@ function FolderBrowserContent() {
     };
 
     const handleVideoClick = async (path: string) => {
-        // HLS(.m3u8) 파일인 경우 R2 Public URL 직접 사용
-        const isHls = path.endsWith('.m3u8');
-        if (isHls) {
-            const encodedPath = path.split('/').map(encodeURIComponent).join('/');
-            setPlayingUrl(`https://videos.haebomsoft.com/${encodedPath}`);
-        } else {
+        setPlayingPath(path);
+
+        // path에서 HLS 경로 추론: 폴더/파일.mp4 → 폴더/hls/파일명/index.m3u8
+        const dir = path.substring(0, path.lastIndexOf('/'));
+        const filename = path.substring(path.lastIndexOf('/') + 1);
+        const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
+        const hlsPath = `${dir}/hls/${nameWithoutExt}/index.m3u8`;
+        const hlsEncodedPath = hlsPath.split('/').map(encodeURIComponent).join('/');
+        const hlsUrl = `https://videos.haebomsoft.com/${hlsEncodedPath}`;
+
+        // HLS 파일 존재 여부 확인 (HEAD 요청)
+        try {
+            const res = await fetch(hlsUrl, { method: 'HEAD' });
+            if (res.ok) {
+                setPlayingUrl(hlsUrl);
+            } else {
+                setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(path)}`);
+            }
+        } catch {
             setPlayingUrl(`/api/videos/stream?path=${encodeURIComponent(path)}`);
         }
-        setPlayingPath(path);
 
         try {
             await axios.post('/api/videos/views', { path });
