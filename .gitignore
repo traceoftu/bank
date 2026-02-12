@@ -43,3 +43,6 @@ next-env.d.ts
 # pyinstaller
 tools/build/
 tools/*.spec
+
+# wrangler
+.wrangler/
