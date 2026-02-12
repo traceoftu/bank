@@ -505,15 +505,18 @@ class UploaderApp:
                         shutil.rmtree(hls_temp_dir, ignore_errors=True)
                         continue
                 else:
-                    # 원본 MP4도 업로드 (다운로드용)
+                    # 원본 MP4도 업로드 (다운로드용) - 원본 파일명으로 업로드
                     self.log(f"  📤 원본 MP4 업로드 중...")
+                    mp4_remote_path = f"{R2_BUCKET}/{upload_path}/{filename}"
                     result = subprocess.run(
-                        ["rclone", "copy", actual_file, f"{R2_BUCKET}/{upload_path}/"],
+                        ["rclone", "copyto", actual_file, mp4_remote_path],
                         capture_output=True, text=False,
                         creationflags=SUBPROCESS_FLAGS
                     )
                     if result.returncode != 0:
                         self.log(f"  ⚠️ 원본 MP4 업로드 실패")
+                    else:
+                        self.log(f"  ✅ 원본 MP4 업로드 완료")
                     
                     # HLS 파일 업로드
                     ts_files = glob.glob(os.path.join(hls_temp_dir, "*.ts"))
