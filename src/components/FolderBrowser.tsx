@@ -462,8 +462,7 @@ function FolderBrowserContent() {
                                     if (canShare) {
                                         try {
                                             await navigator.share({
-                                                title: videoName,
-                                                text: `${videoName} - JBCH Word of Life Hub`,
+                                                title: `${videoName} - JBCH Word of Life Hub`,
                                                 url: shareUrl,
                                             });
                                         } catch (err: any) {
@@ -490,7 +489,8 @@ function FolderBrowserContent() {
                             <button
                                 onClick={async () => {
                                     const folderPath = playingPath.split('/').slice(0, -1).join('/');
-                                    const folderName = folderPath.split('/').pop() || '폴더';
+                                    const folderParts = folderPath.split('/');
+                                    const folderLabel = folderParts.join(' ');
                                     let shareUrl = `${window.location.origin}/?path=${encodeURIComponent(folderPath)}`;
                                     try {
                                         const res = await fetch('/api/shorten', {
@@ -509,19 +509,18 @@ function FolderBrowserContent() {
                                     if (canShare) {
                                         try {
                                             await navigator.share({
-                                                title: `${folderName} - JBCH Word of Life Hub`,
-                                                text: `${folderName} 폴더의 모든 영상`,
+                                                title: `${folderLabel} 전편 영상 공유 - JBCH`,
                                                 url: shareUrl,
                                             });
                                         } catch (err: any) {
                                             if (err.name !== 'AbortError') {
                                                 await navigator.clipboard.writeText(shareUrl);
-                                                alert('폴더 링크가 복사되었습니다!');
+                                                alert('링크가 복사되었습니다!');
                                             }
                                         }
                                     } else {
                                         await navigator.clipboard.writeText(shareUrl);
-                                        alert('폴더 링크가 복사되었습니다!');
+                                        alert('링크가 복사되었습니다!');
                                     }
                                     setShowShareModal(false);
                                 }}
