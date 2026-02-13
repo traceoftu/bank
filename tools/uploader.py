@@ -349,23 +349,43 @@ class UploaderApp:
         
         return False, codec, file_size_mb
     
-    def convert_to_hls(self, input_path, output_dir):
-        """MP4를 HLS(m3u8 + ts)로 변환"""
+    def convert_to_hls(self, input_path, output_dir, codec="h264"):
+        """MP4를 HLS(m3u8 + ts/fmp4)로 변환. H.265는 fMP4 세그먼트 사용 (TS는 HEVC 미지원)"""
         os.makedirs(output_dir, exist_ok=True)
         m3u8_path = os.path.join(output_dir, "index.m3u8")
         
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", input_path,
-            "-c:v", "copy",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-hls_time", "10",
-            "-hls_list_size", "0",
-            "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
-            "-f", "hls",
-            m3u8_path
-        ]
+        is_hevc = codec.lower() in ("hevc", "h265", "h.265")
+        
+        if is_hevc:
+            # fMP4 세그먼트: H.265 호환 (iOS Safari 지원)
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", input_path,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-hls_time", "10",
+                "-hls_list_size", "0",
+                "-hls_segment_type", "fmp4",
+                "-hls_fmp4_init_filename", "init.mp4",
+                "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.m4s"),
+                "-f", "hls",
+                m3u8_path
+            ]
+        else:
+            # TS 세그먼트: H.264 (기존 방식)
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", input_path,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-hls_time", "10",
+                "-hls_list_size", "0",
+                "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
+                "-f", "hls",
+                m3u8_path
+            ]
         
         result = subprocess.run(
             cmd,
@@ -478,7 +498,13 @@ class UploaderApp:
                             self.log(f"  ⚠️ 압축 실패, 원본으로 업로드")
                 
                 # 1. HLS 변환 및 업로드
-                self.log(f"[{i+1}/{total}] {filename} HLS 변환 중...")
+                # 코덱 확인: 압축했으면 항상 hevc, 아니면 원본 코덱 확인
+                if compressed_path and actual_file == compressed_path:
+                    video_codec = "hevc"
+                else:
+                    video_codec = self.get_video_codec(actual_file)
+                
+                self.log(f"[{i+1}/{total}] {filename} HLS 변환 중... (코덱: {video_codec})")
                 self.status_label.configure(text=f"[{i+1}/{total}] {filename} HLS 변환 중...")
                 
                 # HLS 변환용 임시 디렉토리
@@ -489,7 +515,7 @@ class UploaderApp:
                 if os.path.exists(hls_temp_dir):
                     shutil.rmtree(hls_temp_dir, ignore_errors=True)
                 
-                hls_success = self.convert_to_hls(actual_file, hls_temp_dir)
+                hls_success = self.convert_to_hls(actual_file, hls_temp_dir, codec=video_codec)
                 
                 if not hls_success:
                     self.log(f"  ⚠️ HLS 변환 실패, 원본 MP4로 업로드")
