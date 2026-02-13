@@ -45,6 +45,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-zinc-950 text-zinc-100 selection:bg-blue-500/30`}
       >
+        <LoadingScreen />
         <AdProvider>
           <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-zinc-950/70 border-b border-white/5">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -64,7 +65,6 @@ export default function RootLayout({
           <StickyBottomAd />
           <RightSidebarAd />
           <PWAInstall />
-          <LoadingScreen />
           <footer className="py-8 border-t border-white/5 text-center text-sm text-zinc-500">
             <p>© {new Date().getFullYear()} JBCH Word of Life Hub</p>
             <p className="mt-1 text-xs text-zinc-600">Designed & Developed by haebomsoft</p>

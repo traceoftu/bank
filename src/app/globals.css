@@ -38,3 +38,16 @@ body {
     font-family: Arial, Helvetica, sans-serif;
     overflow-y: scroll;
 }
+
+/* 스플래시: JS 로드 전 콘텐츠 숨김 (LoadingScreen이 제거) */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: #09090b;
+    pointer-events: none;
+}
+body.splash-done::before {
+    display: none;
+}

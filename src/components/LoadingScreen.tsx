@@ -12,6 +12,9 @@ export default function LoadingScreen() {
     const [fadeout, setFadeout] = useState(false);
 
     useEffect(() => {
+        // body::before 오버레이 제거 (CSS에서 JS 로드 전 콘텐츠 숨김용)
+        document.body.classList.add('splash-done');
+
         // 글자 하나씩 오른쪽→왼쪽으로 등장 (각 200ms 간격)
         const letterTimers = LOGO_TEXT.split('').map((_, i) =>
             setTimeout(() => setActiveIndex(i), 300 + i * 200)

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'jbch-hub-v4';
-const STATIC_CACHE = 'jbch-static-v4';
+const CACHE_NAME = 'jbch-hub-v5';
+const STATIC_CACHE = 'jbch-static-v5';
 const THUMBNAIL_CACHE = 'thumbnails-cache';
 
 // 앱 셸 - 필수 리소스 (오프라인에서도 작동)

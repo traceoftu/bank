@@ -18,6 +18,7 @@ import urllib.error
 import shutil
 import glob
 import tempfile
+import hashlib
 
 # Windows에서 subprocess 콘솔 창 숨기기
 if sys.platform == 'win32':
@@ -354,20 +355,37 @@ class UploaderApp:
         os.makedirs(output_dir, exist_ok=True)
         m3u8_path = os.path.join(output_dir, "index.m3u8")
         
+        # ffmpeg는 경로 내 쉼표(,) 등 특수문자를 옵션 구분자로 해석하므로
+        # 입력 파일을 안전한 임시 경로로 복사(하드링크)하여 사용
+        safe_input = input_path
+        temp_link = None
+        if any(c in os.path.basename(input_path) for c in [',', ';', "'", '"']):
+            temp_link = os.path.join(tempfile.gettempdir(), f"ffmpeg_input_{hashlib.md5(input_path.encode()).hexdigest()[:12]}.mp4")
+            try:
+                if os.path.exists(temp_link):
+                    os.remove(temp_link)
+                shutil.copy2(input_path, temp_link)
+                safe_input = temp_link
+            except Exception:
+                safe_input = input_path
+                temp_link = None
+        
         is_hevc = codec.lower() in ("hevc", "h265", "h.265")
         
         if is_hevc:
             # fMP4 세그먼트: H.265 호환 (iOS Safari 지원)
+            # init_filename을 output_dir 전체 경로로 지정
+            init_path = os.path.join(output_dir, "init.mp4")
             cmd = [
                 "ffmpeg", "-y",
-                "-i", input_path,
+                "-i", safe_input,
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-b:a", "128k",
                 "-hls_time", "10",
                 "-hls_list_size", "0",
                 "-hls_segment_type", "fmp4",
-                "-hls_fmp4_init_filename", "init.mp4",
+                "-hls_fmp4_init_filename", init_path,
                 "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.m4s"),
                 "-f", "hls",
                 m3u8_path
@@ -376,7 +394,7 @@ class UploaderApp:
             # TS 세그먼트: H.264 (기존 방식)
             cmd = [
                 "ffmpeg", "-y",
-                "-i", input_path,
+                "-i", safe_input,
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-b:a", "128k",
@@ -394,7 +412,31 @@ class UploaderApp:
             creationflags=SUBPROCESS_FLAGS
         )
         
-        return result.returncode == 0 and os.path.exists(m3u8_path)
+        # 임시 파일 정리
+        if temp_link and os.path.exists(temp_link):
+            try:
+                os.remove(temp_link)
+            except Exception:
+                pass
+        
+        if result.returncode != 0:
+            stderr = result.stderr.decode('utf-8', errors='replace') if result.stderr else ''
+            self.log(f"  ⚠️ ffmpeg HLS 오류: {stderr[-500:]}")
+            return False
+        
+        # fMP4: m3u8 내의 init.mp4 전체 경로를 상대 경로로 수정
+        if is_hevc and os.path.exists(m3u8_path):
+            with open(m3u8_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            # 전체 경로를 상대 경로 "init.mp4"로 치환
+            init_abs = os.path.join(output_dir, "init.mp4").replace('\\', '/')
+            content = content.replace(init_abs, "init.mp4")
+            init_abs_win = os.path.join(output_dir, "init.mp4")
+            content = content.replace(init_abs_win, "init.mp4")
+            with open(m3u8_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+        
+        return os.path.exists(m3u8_path)
     
     def upload_hls_files(self, hls_dir, remote_path):
         """HLS 파일들을 R2에 업로드"""
@@ -469,9 +511,10 @@ class UploaderApp:
                         self.log(f"[{i+1}/{total}] {filename} 압축 중... ({codec} → H.265 NVENC)")
                         self.status_label.configure(text=f"[{i+1}/{total}] {filename} 압축 중...")
                         
-                        # 압축된 파일 경로
+                        # 압축된 파일 경로 (특수문자 제거 - ffmpeg 호환)
                         name, ext = os.path.splitext(filename)
-                        compressed_path = os.path.join(os.environ.get('TEMP', '/tmp'), f"{name}_compressed.mp4")
+                        safe_compress_name = hashlib.md5(name.encode('utf-8')).hexdigest()[:12]
+                        compressed_path = os.path.join(os.environ.get('TEMP', '/tmp'), f"{safe_compress_name}_compressed.mp4")
                         
                         # 원본 크기
                         original_size = os.path.getsize(file_path) / (1024 * 1024)  # MB
@@ -507,9 +550,10 @@ class UploaderApp:
                 self.log(f"[{i+1}/{total}] {filename} HLS 변환 중... (코덱: {video_codec})")
                 self.status_label.configure(text=f"[{i+1}/{total}] {filename} HLS 변환 중...")
                 
-                # HLS 변환용 임시 디렉토리
+                # HLS 변환용 임시 디렉토리 (특수문자 제거 - ffmpeg가 쉼표 등을 구분자로 해석)
                 name_without_ext = os.path.splitext(filename)[0]
-                hls_temp_dir = os.path.join(tempfile.gettempdir(), f"hls_{name_without_ext}")
+                safe_name = hashlib.md5(name_without_ext.encode('utf-8')).hexdigest()[:12]
+                hls_temp_dir = os.path.join(tempfile.gettempdir(), f"hls_{safe_name}")
                 
                 # 기존 임시 디렉토리 정리
                 if os.path.exists(hls_temp_dir):
@@ -546,7 +590,12 @@ class UploaderApp:
                     
                     # HLS 파일 업로드
                     ts_files = glob.glob(os.path.join(hls_temp_dir, "*.ts"))
-                    self.log(f"  📤 HLS 업로드 중... (m3u8 + {len(ts_files)}개 세그먼트)")
+                    m4s_files = glob.glob(os.path.join(hls_temp_dir, "*.m4s"))
+                    init_files = glob.glob(os.path.join(hls_temp_dir, "init.mp4"))
+                    seg_count = len(ts_files) + len(m4s_files)
+                    all_hls_files = os.listdir(hls_temp_dir) if os.path.exists(hls_temp_dir) else []
+                    self.log(f"  � HLS 파일: {all_hls_files}")
+                    self.log(f"  �� HLS 업로드 중... (m3u8 + {seg_count}개 세그먼트)")
                     self.status_label.configure(text=f"[{i+1}/{total}] {filename} HLS 업로드 중...")
                     
                     hls_remote_path = f"{upload_path}/hls/{name_without_ext}"
