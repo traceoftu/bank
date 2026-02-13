@@ -443,8 +443,19 @@ function FolderBrowserContent() {
                             {/* 현재 영상만 공유 */}
                             <button
                                 onClick={async () => {
-                                    const videoName = playingPath.split('/').pop() || '영상';
-                                    const shareUrl = `${window.location.origin}/?play=${encodeURIComponent(playingPath)}`;
+                                    const videoName = playingPath.split('/').pop()?.replace(/\.[^.]+$/, '') || '영상';
+                                    let shareUrl = `${window.location.origin}/?play=${encodeURIComponent(playingPath)}`;
+                                    try {
+                                        const res = await fetch('/api/shorten', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ path: playingPath, type: 'play' }),
+                                        });
+                                        if (res.ok) {
+                                            const { id } = await res.json() as { id: string };
+                                            shareUrl = `${window.location.origin}/s/${id}`;
+                                        }
+                                    } catch {}
                                     const canShare = typeof navigator.share === 'function' &&
                                         (typeof navigator.canShare !== 'function' || navigator.canShare({ url: shareUrl }));
 
@@ -480,7 +491,18 @@ function FolderBrowserContent() {
                                 onClick={async () => {
                                     const folderPath = playingPath.split('/').slice(0, -1).join('/');
                                     const folderName = folderPath.split('/').pop() || '폴더';
-                                    const shareUrl = `${window.location.origin}/?path=${encodeURIComponent(folderPath)}`;
+                                    let shareUrl = `${window.location.origin}/?path=${encodeURIComponent(folderPath)}`;
+                                    try {
+                                        const res = await fetch('/api/shorten', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ path: folderPath, type: 'path' }),
+                                        });
+                                        if (res.ok) {
+                                            const { id } = await res.json() as { id: string };
+                                            shareUrl = `${window.location.origin}/s/${id}`;
+                                        }
+                                    } catch {}
                                     const canShare = typeof navigator.share === 'function' &&
                                         (typeof navigator.canShare !== 'function' || navigator.canShare({ url: shareUrl }));
 
