@@ -695,16 +695,21 @@ class UploaderApp:
                     method='POST'
                 )
                 
-                with urllib.request.urlopen(req, timeout=30) as response:
+                with urllib.request.urlopen(req, timeout=120) as response:
                     result = json.loads(response.read().decode('utf-8'))
                     if result.get('success'):
                         count = result.get('count', 0)
                         self.log(f"✅ KV 동기화 완료! ({count}개 파일)")
                         messagebox.showinfo("완료", f"KV 동기화 완료!\n{count}개 파일이 등록되었습니다.")
                     else:
-                        self.log(f"❌ KV 동기화 실패: {result}")
-                        messagebox.showerror("오류", f"동기화 실패: {result}")
+                        error_msg = result.get('error', str(result))
+                        self.log(f"❌ KV 동기화 실패: {error_msg}")
+                        messagebox.showerror("오류", f"동기화 실패: {error_msg}")
                         
+            except urllib.error.HTTPError as e:
+                body = e.read().decode('utf-8', errors='replace')
+                self.log(f"❌ KV 동기화 HTTP 오류: {e.code} {body}")
+                messagebox.showerror("오류", f"동기화 HTTP 오류: {e.code}\n{body[:200]}")
             except Exception as e:
                 self.log(f"❌ KV 동기화 오류: {e}")
                 messagebox.showerror("오류", f"동기화 오류: {e}")
@@ -869,15 +874,20 @@ class UploaderApp:
                     },
                     method='POST'
                 )
-                with urllib.request.urlopen(req, timeout=30) as response:
+                with urllib.request.urlopen(req, timeout=120) as response:
                     result = json.loads(response.read().decode('utf-8'))
                     if result.get('success'):
                         count = result.get('count', 0)
                         self.log(f"✅ KV 동기화 완료! ({count}개 파일)")
                         messagebox.showinfo("완료", f"삭제 완료!\n성공: {success}개\n실패: {failed}개\n\nKV 동기화 완료 ({count}개 파일)")
                     else:
-                        self.log(f"⚠️ KV 동기화 실패")
+                        error_msg = result.get('error', str(result))
+                        self.log(f"⚠️ KV 동기화 실패: {error_msg}")
                         messagebox.showinfo("완료", f"삭제 완료!\n성공: {success}개\n실패: {failed}개\n\n⚠️ KV 동기화 실패 - 수동으로 동기화해주세요.")
+            except urllib.error.HTTPError as e:
+                body = e.read().decode('utf-8', errors='replace')
+                self.log(f"⚠️ KV 동기화 HTTP 오류: {e.code} {body}")
+                messagebox.showinfo("완료", f"삭제 완료!\n성공: {success}개\n실패: {failed}개\n\n⚠️ KV 동기화 오류({e.code}) - 수동으로 동기화해주세요.")
             except Exception as e:
                 self.log(f"⚠️ KV 동기화 오류: {e}")
                 messagebox.showinfo("완료", f"삭제 완료!\n성공: {success}개\n실패: {failed}개\n\n⚠️ KV 동기화 오류 - 수동으로 동기화해주세요.")
