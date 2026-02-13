@@ -372,9 +372,9 @@ function FolderBrowserContent() {
                                             const currentTime = video.currentTime;
                                             video.src = mp4Url;
                                             video.currentTime = currentTime;
-                                            video.play().catch(() => {});
                                             setIsMp4Mode(true);
-                                            setTimeout(() => alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.'), 300);
+                                            alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.');
+                                            video.play().catch(() => {});
                                         } else if (isIOS) {
                                             // iOS: 네이티브 HLS → MP4 전환 + 새 탭 다운로드
                                             const currentTime = video.currentTime;
