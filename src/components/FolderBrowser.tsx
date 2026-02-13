@@ -363,16 +363,25 @@ function FolderBrowserContent() {
                                     onClick={() => {
                                         const video = videoRef.current;
                                         if (!video) return;
-                                        // HLS → MP4 전환 (이미 MP4면 스킵)
+                                        const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
+                                        const mp4Url = `https://videos.haebomsoft.com/${mp4Encoded}`;
                                         if (hlsRef.current) {
+                                            // HLS.js → MP4 전환 (Android, Desktop)
                                             hlsRef.current.destroy();
                                             hlsRef.current = null;
                                             const currentTime = video.currentTime;
-                                            const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
-                                            video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
+                                            video.src = mp4Url;
                                             video.currentTime = currentTime;
                                             video.play().catch(() => {});
                                             setIsMp4Mode(true);
+                                        } else if (isIOS) {
+                                            // iOS: 네이티브 HLS → MP4 전환 + 새 탭 다운로드
+                                            const currentTime = video.currentTime;
+                                            video.src = mp4Url;
+                                            video.currentTime = currentTime;
+                                            video.play().catch(() => {});
+                                            setIsMp4Mode(true);
+                                            window.open(`/api/videos/download?path=${encodeURIComponent(playingPath)}`, '_blank');
                                         }
                                     }}
                                     className={`flex items-center justify-center w-10 h-10 text-white transition-colors rounded-full cursor-pointer backdrop-blur-md ${isMp4Mode ? 'bg-green-600/80 hover:bg-green-500/80' : 'bg-zinc-800/50 hover:bg-zinc-700/80'}`}
