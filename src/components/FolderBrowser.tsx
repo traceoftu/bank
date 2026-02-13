@@ -374,6 +374,7 @@ function FolderBrowserContent() {
                                             video.currentTime = currentTime;
                                             video.play().catch(() => {});
                                             setIsMp4Mode(true);
+                                            setTimeout(() => alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.'), 300);
                                         } else if (isIOS) {
                                             // iOS: 네이티브 HLS → MP4 전환 + 새 탭 다운로드
                                             const currentTime = video.currentTime;
@@ -382,6 +383,9 @@ function FolderBrowserContent() {
                                             video.play().catch(() => {});
                                             setIsMp4Mode(true);
                                             window.open(`/api/videos/download?path=${encodeURIComponent(playingPath)}`, '_blank');
+                                        } else if (isMp4Mode) {
+                                            // 이미 MP4 전환됨 → 안내 반복
+                                            setTimeout(() => alert('이미 MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.'), 100);
                                         }
                                     }}
                                     className={`flex items-center justify-center w-10 h-10 text-white transition-colors rounded-full cursor-pointer backdrop-blur-md ${isMp4Mode ? 'bg-green-600/80 hover:bg-green-500/80' : 'bg-zinc-800/50 hover:bg-zinc-700/80'}`}
