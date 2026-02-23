@@ -143,17 +143,9 @@ class UploaderApp:
         ttk.Label(compress_frame, text="화질:").pack(side=tk.LEFT, padx=(20, 5))
         self.quality_var = tk.StringVar(value="균형 (CRF 23)")
         quality_combo = ttk.Combobox(compress_frame, textvariable=self.quality_var, width=20, state="readonly",
-                                      values=["고화질 (CRF 18)", "균형 (CRF 23)", "용량 우선 (CRF 28)", "최대 압축 (CRF 32)"])
+                                      values=["고화질 (CRF 18)", "균형 (CRF 23)", "용량 우선 (CRF 28)"])
         quality_combo.pack(side=tk.LEFT)
         
-        # 해상도 옵션
-        ttk.Label(compress_frame, text="해상도:").pack(side=tk.LEFT, padx=(20, 5))
-        self.resolution_var = tk.StringVar(value="원본")
-        resolution_combo = ttk.Combobox(compress_frame, textvariable=self.resolution_var, width=15, state="readonly",
-                                        values=["원본", "1080p (1920x1080)", "900p (1600x900)", "720p (1280x720)", "540p (960x540)", "480p (854x480)"])
-        resolution_combo.pack(side=tk.LEFT)
-        
-                
         # === 진행 상황 ===
         progress_frame = ttk.LabelFrame(main_frame, text="4. 진행 상황", padding="10")
         progress_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
@@ -320,25 +312,7 @@ class UploaderApp:
             return "18"
         elif "28" in quality:
             return "28"
-        elif "32" in quality:
-            return "32"
         return "23"  # 기본값
-    
-    def get_resolution_value(self):
-        """해상도 설정에서 값 추출"""
-        resolution = self.resolution_var.get()
-        if "1080p" in resolution:
-            return "1920x1080"
-        elif "900p" in resolution:
-            return "1600x900"
-        elif "720p" in resolution:
-            return "1280x720"
-        elif "540p" in resolution:
-            return "960x540"
-        elif "480p" in resolution:
-            return "854x480"
-        else:
-            return None  # 원본
     
     def get_video_codec(self, file_path):
         """ffprobe로 영상 코덱 확인"""
@@ -398,8 +372,6 @@ class UploaderApp:
         
         is_hevc = codec.lower() in ("hevc", "h265", "h.265")
         
-        audio_bitrate = self.get_audio_bitrate()
-        
         if is_hevc:
             # fMP4 세그먼트: H.265 호환 (iOS Safari 지원)
             # init_filename을 output_dir 전체 경로로 지정
@@ -409,7 +381,7 @@ class UploaderApp:
                 "-i", safe_input,
                 "-c:v", "copy",
                 "-c:a", "aac",
-                "-b:a", audio_bitrate,
+                "-b:a", "128k",
                 "-hls_time", "10",
                 "-hls_list_size", "0",
                 "-hls_segment_type", "fmp4",
@@ -425,7 +397,7 @@ class UploaderApp:
                 "-i", safe_input,
                 "-c:v", "copy",
                 "-c:a", "aac",
-                "-b:a", audio_bitrate,
+                "-b:a", "128k",
                 "-hls_time", "10",
                 "-hls_list_size", "0",
                 "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
@@ -480,11 +452,10 @@ class UploaderApp:
     def compress_video(self, input_path, output_path):
         """NVENC H.265로 영상 압축"""
         crf = self.get_crf_value()
-        resolution = self.get_resolution_value()
         
         # 비트레이트 제한 설정 (CRF별)
-        # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps / CRF 32: 최대압축 - 1Mbps
-        bitrate_map = {"18": "8M", "23": "4M", "28": "2M", "32": "1M"}
+        # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps
+        bitrate_map = {"18": "8M", "23": "4M", "28": "2M"}
         maxrate = bitrate_map.get(crf, "4M")
         bufsize = maxrate  # bufsize = maxrate와 동일
         
@@ -500,14 +471,9 @@ class UploaderApp:
             "-maxrate", maxrate,
             "-bufsize", bufsize,
             "-c:a", "aac",
-            "-b:a", "128k"
+            "-b:a", "128k",
+            output_path
         ]
-        
-        # 해상도 변경 옵션 추가
-        if resolution:
-            cmd.extend(["-vf", f"scale={resolution}"])
-        
-        cmd.append(output_path)
         
         result = subprocess.run(
             cmd,
