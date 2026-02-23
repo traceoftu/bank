@@ -143,8 +143,29 @@ class UploaderApp:
         ttk.Label(compress_frame, text="화질:").pack(side=tk.LEFT, padx=(20, 5))
         self.quality_var = tk.StringVar(value="균형 (CRF 23)")
         quality_combo = ttk.Combobox(compress_frame, textvariable=self.quality_var, width=20, state="readonly",
-                                      values=["고화질 (CRF 18)", "균형 (CRF 23)", "용량 우선 (CRF 28)"])
+                                      values=["고화질 (CRF 18)", "균형 (CRF 23)", "용량 우선 (CRF 28)", "최대 압축 (CRF 32)"])
         quality_combo.pack(side=tk.LEFT)
+        
+        # 해상도 옵션
+        ttk.Label(compress_frame, text="해상도:").pack(side=tk.LEFT, padx=(20, 5))
+        self.resolution_var = tk.StringVar(value="960px")
+        resolution_combo = ttk.Combobox(compress_frame, textvariable=self.resolution_var, width=15, state="readonly",
+                                        values=["720px", "960px", "1280px"])
+        resolution_combo.pack(side=tk.LEFT)
+        
+        # 속도 옵션
+        ttk.Label(compress_frame, text="속도:").pack(side=tk.LEFT, padx=(20, 5))
+        self.speed_var = tk.StringVar(value="SLOW")
+        speed_combo = ttk.Combobox(compress_frame, textvariable=self.speed_var, width=12, state="readonly",
+                                  values=["FAST", "SLOW"])
+        speed_combo.pack(side=tk.LEFT)
+        
+        # 음성 비트레이트 옵션
+        ttk.Label(compress_frame, text="음성:").pack(side=tk.LEFT, padx=(20, 5))
+        self.audio_var = tk.StringVar(value="128k")
+        audio_combo = ttk.Combobox(compress_frame, textvariable=self.audio_var, width=10, state="readonly",
+                                  values=["64k", "96k", "128k", "192k", "256k"])
+        audio_combo.pack(side=tk.LEFT)
         
         # === 진행 상황 ===
         progress_frame = ttk.LabelFrame(main_frame, text="4. 진행 상황", padding="10")
@@ -312,7 +333,13 @@ class UploaderApp:
             return "18"
         elif "28" in quality:
             return "28"
+        elif "32" in quality:
+            return "32"
         return "23"  # 기본값
+    
+    def get_audio_bitrate(self):
+        """음성 비트레이트 설정에서 값 추출"""
+        return self.audio_var.get()
     
     def get_video_codec(self, file_path):
         """ffprobe로 영상 코덱 확인"""
@@ -372,6 +399,8 @@ class UploaderApp:
         
         is_hevc = codec.lower() in ("hevc", "h265", "h.265")
         
+        audio_bitrate = self.get_audio_bitrate()
+        
         if is_hevc:
             # fMP4 세그먼트: H.265 호환 (iOS Safari 지원)
             # init_filename을 output_dir 전체 경로로 지정
@@ -381,7 +410,7 @@ class UploaderApp:
                 "-i", safe_input,
                 "-c:v", "copy",
                 "-c:a", "aac",
-                "-b:a", "128k",
+                "-b:a", audio_bitrate,
                 "-hls_time", "10",
                 "-hls_list_size", "0",
                 "-hls_segment_type", "fmp4",
@@ -397,7 +426,7 @@ class UploaderApp:
                 "-i", safe_input,
                 "-c:v", "copy",
                 "-c:a", "aac",
-                "-b:a", "128k",
+                "-b:a", audio_bitrate,
                 "-hls_time", "10",
                 "-hls_list_size", "0",
                 "-hls_segment_filename", os.path.join(output_dir, "seg_%03d.ts"),
@@ -454,12 +483,13 @@ class UploaderApp:
         crf = self.get_crf_value()
         
         # 비트레이트 제한 설정 (CRF별)
-        # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps
-        bitrate_map = {"18": "8M", "23": "4M", "28": "2M"}
+        # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps / CRF 32: 최대압축 - 1Mbps
+        bitrate_map = {"18": "8M", "23": "4M", "28": "2M", "32": "1M"}
         maxrate = bitrate_map.get(crf, "4M")
         bufsize = maxrate  # bufsize = maxrate와 동일
         
         # NVENC H.265 압축 명령어 (VBR 모드 + 비트레이트 제한)
+        audio_bitrate = self.get_audio_bitrate()
         cmd = [
             "ffmpeg", "-y",
             "-hwaccel", "cuda",
@@ -471,7 +501,7 @@ class UploaderApp:
             "-maxrate", maxrate,
             "-bufsize", bufsize,
             "-c:a", "aac",
-            "-b:a", "128k",
+            "-b:a", audio_bitrate,
             output_path
         ]
         
