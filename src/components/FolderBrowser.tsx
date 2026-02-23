@@ -376,12 +376,17 @@ function FolderBrowserContent() {
                                             alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.');
                                             video.play().catch(() => {});
                                         } else if (isIOS) {
-                                            // iOS: 네이티브 HLS → MP4 전환 + 새 탭 다운로드
-                                            const currentTime = video.currentTime;
-                                            video.src = mp4Url;
-                                            video.currentTime = currentTime;
-                                            video.play().catch(() => {});
+                                            // iOS: 네이티브 HLS → MP4 전환 + API 다운로드
+                                            const videoEl = videoRef.current;
+                                            if (videoEl) {
+                                                const currentTime = videoEl.currentTime;
+                                                videoEl.src = mp4Url; // MP4로 전환
+                                                videoEl.currentTime = currentTime;
+                                                videoEl.play().catch(() => { });
+                                            }
                                             setIsMp4Mode(true);
+                                            
+                                            // iOS: API를 통한 스트리밍 다운로드
                                             window.open(`/api/videos/download?path=${encodeURIComponent(playingPath)}`, '_blank');
                                         } else if (isMp4Mode) {
                                             // 이미 MP4 전환됨 → 안내 반복
