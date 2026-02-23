@@ -376,7 +376,7 @@ function FolderBrowserContent() {
                                             alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.');
                                             video.play().catch(() => {});
                                         } else if (isIOS) {
-                                            // iOS: 네이티브 HLS → MP4 전환 + API 다운로드
+                                            // iOS: 네이티브 HLS → MP4 전환 + 즉시 다운로드
                                             const videoEl = videoRef.current;
                                             if (videoEl) {
                                                 const currentTime = videoEl.currentTime;
@@ -386,8 +386,14 @@ function FolderBrowserContent() {
                                             }
                                             setIsMp4Mode(true);
                                             
-                                            // iOS: API를 통한 스트리밍 다운로드
-                                            window.open(`/api/videos/download?path=${encodeURIComponent(playingPath)}`, '_blank');
+                                            // iOS: 즉시 다운로드 (메시지 없이)
+                                            const downloadLink = document.createElement('a');
+                                            downloadLink.href = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
+                                            downloadLink.download = '';
+                                            downloadLink.style.display = 'none';
+                                            document.body.appendChild(downloadLink);
+                                            downloadLink.click();
+                                            document.body.removeChild(downloadLink);
                                         } else if (isMp4Mode) {
                                             // 이미 MP4 전환됨 → 안내 반복
                                             setTimeout(() => alert('이미 MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.'), 100);
