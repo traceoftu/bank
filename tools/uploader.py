@@ -148,25 +148,12 @@ class UploaderApp:
         
         # 해상도 옵션
         ttk.Label(compress_frame, text="해상도:").pack(side=tk.LEFT, padx=(20, 5))
-        self.resolution_var = tk.StringVar(value="960px")
+        self.resolution_var = tk.StringVar(value="원본")
         resolution_combo = ttk.Combobox(compress_frame, textvariable=self.resolution_var, width=15, state="readonly",
-                                        values=["720px", "960px", "1280px"])
+                                        values=["원본", "1080p (1920x1080)", "900p (1600x900)", "720p (1280x720)", "540p (960x540)", "480p (854x480)"])
         resolution_combo.pack(side=tk.LEFT)
         
-        # 속도 옵션
-        ttk.Label(compress_frame, text="속도:").pack(side=tk.LEFT, padx=(20, 5))
-        self.speed_var = tk.StringVar(value="SLOW")
-        speed_combo = ttk.Combobox(compress_frame, textvariable=self.speed_var, width=12, state="readonly",
-                                  values=["FAST", "SLOW"])
-        speed_combo.pack(side=tk.LEFT)
-        
-        # 음성 비트레이트 옵션
-        ttk.Label(compress_frame, text="음성:").pack(side=tk.LEFT, padx=(20, 5))
-        self.audio_var = tk.StringVar(value="128k")
-        audio_combo = ttk.Combobox(compress_frame, textvariable=self.audio_var, width=10, state="readonly",
-                                  values=["64k", "96k", "128k", "192k", "256k"])
-        audio_combo.pack(side=tk.LEFT)
-        
+                
         # === 진행 상황 ===
         progress_frame = ttk.LabelFrame(main_frame, text="4. 진행 상황", padding="10")
         progress_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
@@ -337,9 +324,21 @@ class UploaderApp:
             return "32"
         return "23"  # 기본값
     
-    def get_audio_bitrate(self):
-        """음성 비트레이트 설정에서 값 추출"""
-        return self.audio_var.get()
+    def get_resolution_value(self):
+        """해상도 설정에서 값 추출"""
+        resolution = self.resolution_var.get()
+        if "1080p" in resolution:
+            return "1920x1080"
+        elif "900p" in resolution:
+            return "1600x900"
+        elif "720p" in resolution:
+            return "1280x720"
+        elif "540p" in resolution:
+            return "960x540"
+        elif "480p" in resolution:
+            return "854x480"
+        else:
+            return None  # 원본
     
     def get_video_codec(self, file_path):
         """ffprobe로 영상 코덱 확인"""
@@ -481,6 +480,7 @@ class UploaderApp:
     def compress_video(self, input_path, output_path):
         """NVENC H.265로 영상 압축"""
         crf = self.get_crf_value()
+        resolution = self.get_resolution_value()
         
         # 비트레이트 제한 설정 (CRF별)
         # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps / CRF 32: 최대압축 - 1Mbps
@@ -489,7 +489,6 @@ class UploaderApp:
         bufsize = maxrate  # bufsize = maxrate와 동일
         
         # NVENC H.265 압축 명령어 (VBR 모드 + 비트레이트 제한)
-        audio_bitrate = self.get_audio_bitrate()
         cmd = [
             "ffmpeg", "-y",
             "-hwaccel", "cuda",
@@ -501,9 +500,14 @@ class UploaderApp:
             "-maxrate", maxrate,
             "-bufsize", bufsize,
             "-c:a", "aac",
-            "-b:a", audio_bitrate,
-            output_path
+            "-b:a", "128k"
         ]
+        
+        # 해상도 변경 옵션 추가
+        if resolution:
+            cmd.extend(["-vf", f"scale={resolution}"])
+        
+        cmd.append(output_path)
         
         result = subprocess.run(
             cmd,

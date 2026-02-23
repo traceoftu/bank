@@ -365,17 +365,9 @@ function FolderBrowserContent() {
                                         if (!video) return;
                                         const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
                                         const mp4Url = `https://videos.haebomsoft.com/${mp4Encoded}`;
-                                        if (hlsRef.current) {
-                                            // HLS.js → MP4 전환 (Android, Desktop)
-                                            hlsRef.current.destroy();
-                                            hlsRef.current = null;
-                                            const currentTime = video.currentTime;
-                                            video.src = mp4Url;
-                                            video.currentTime = currentTime;
-                                            setIsMp4Mode(true);
-                                            alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.');
-                                            video.play().catch(() => {});
-                                        } else if (isIOS) {
+                                        
+                                        // iOS 먼저 체크
+                                        if (isIOS) {
                                             // iOS: 네이티브 HLS → MP4 전환 + 즉시 다운로드
                                             const videoEl = videoRef.current;
                                             if (videoEl) {
@@ -394,6 +386,16 @@ function FolderBrowserContent() {
                                             document.body.appendChild(downloadLink);
                                             downloadLink.click();
                                             document.body.removeChild(downloadLink);
+                                        } else if (hlsRef.current) {
+                                            // HLS.js → MP4 전환 (Android, Desktop)
+                                            hlsRef.current.destroy();
+                                            hlsRef.current = null;
+                                            const currentTime = video.currentTime;
+                                            video.src = mp4Url;
+                                            video.currentTime = currentTime;
+                                            setIsMp4Mode(true);
+                                            alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.');
+                                            video.play().catch(() => {});
                                         } else if (isMp4Mode) {
                                             // 이미 MP4 전환됨 → 안내 반복
                                             setTimeout(() => alert('이미 MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.'), 100);
