@@ -84,7 +84,7 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
             <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800 ring-1 ring-white/5">
                 {thumbnailPath ? (
                     <img
-                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.jpg`}
+                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.JPG`}
                         alt={name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         onLoad={() => {
@@ -92,14 +92,19 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
                         }}
                         onError={(e) => {
                             console.log('❌ 폴더 썸네일 로드 실패:', thumbnailPath);
-                            // 이미지 로드 실패 시 div로 교체 (무한 요청 방지)
-                            const parent = e.currentTarget.parentElement;
-                            if (parent) {
-                                parent.innerHTML = `
-                                    <div class="w-full h-full flex items-center justify-center bg-zinc-800">
-                                        <span class="text-4xl text-zinc-600">📁</span>
-                                    </div>
-                                `;
+                            // 소문자로 재시도
+                            if (e.currentTarget.src.includes('.JPG')) {
+                                e.currentTarget.src = `https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.jpg`;
+                            } else {
+                                // 이미지 로드 실패 시 div로 교체 (무한 요청 방지)
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) {
+                                    parent.innerHTML = `
+                                        <div class="w-full h-full flex items-center justify-center bg-zinc-800">
+                                            <span class="text-4xl text-zinc-600">📁</span>
+                                        </div>
+                                    `;
+                                }
                             }
                         }}
                     />
