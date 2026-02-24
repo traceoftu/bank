@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
             const relativePath = path ? file.path.replace(path + '/', '') : file.path;
             const parts = relativePath.split('/');
             
-            if (parts.length > 1) {
-                // 하위 폴더가 있음 (2단계 이상 모두 포함)
+            // 현재 폴더의 직접 하위 폴더만 처리 (성인 → 이정국, 배현기 등)
+            if (parts.length >= 2) {
                 const folderName = parts[0];
                 const folderPath = path ? `${path}/${folderName}` : folderName;
                 
@@ -93,8 +93,8 @@ export async function GET(request: NextRequest) {
                     });
                 }
                 
-                // 폴더 내 모든 영상 조회수 집계 (3단계 깊이까지)
-                if (!file.isdir) {
+                // 해당 폴더의 모든 하위 영상 조회수 집계 (4단계 깊이까지)
+                if (!file.isdir && file.path.startsWith(folderPath + '/')) {
                     const folderInfo = folderMap.get(folderPath)!;
                     folderInfo.totalViews += viewCounts.get(file.path) || 0;
                     
