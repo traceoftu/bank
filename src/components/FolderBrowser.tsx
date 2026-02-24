@@ -92,7 +92,15 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
                         }}
                         onError={(e) => {
                             console.log('❌ 폴더 썸네일 로드 실패:', thumbnailPath);
-                            e.currentTarget.src = '/placeholder.jpg';
+                            // 이미지 로드 실패 시 div로 교체 (무한 요청 방지)
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) {
+                                parent.innerHTML = `
+                                    <div class="w-full h-full flex items-center justify-center bg-zinc-800">
+                                        <span class="text-4xl text-zinc-600">📁</span>
+                                    </div>
+                                `;
+                            }
                         }}
                     />
                 ) : (
