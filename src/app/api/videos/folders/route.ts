@@ -42,6 +42,14 @@ export async function GET(request: NextRequest) {
         try {
             const db = (env as any).DB as D1Database;
             if (db) {
+                // 먼저 D1에 데이터가 있는지 확인
+                const countResult = await db.prepare('SELECT COUNT(*) as count FROM views').first();
+                console.log('📊 D1 views 테이블 레코드 수:', countResult?.count || 0);
+                
+                // 샘플 데이터 확인
+                const sampleResult = await db.prepare('SELECT path, count FROM views LIMIT 5').all();
+                console.log('📊 D1 샘플 데이터:', sampleResult.results);
+                
                 // 현재 경로의 하위 폴더들만 집계
                 const pathPrefix = path ? `${path}/` : '';
                 const result = await db.prepare(`
@@ -60,6 +68,8 @@ export async function GET(request: NextRequest) {
                     ORDER BY total_views DESC
                 `).bind(pathPrefix, `${pathPrefix}%`).all();
                 
+                console.log('📊 D1 집계 결과:', result.results);
+                
                 if (result.results) {
                     for (const row of result.results as any[]) {
                         const folderPath = path ? `${path}/${row.folder_name}` : row.folder_name;
@@ -73,6 +83,33 @@ export async function GET(request: NextRequest) {
             }
         } catch (e) {
             console.error('D1 aggregation query error:', e);
+        }
+        
+        // D1에 데이터가 없으면 KV 폴백
+        if (folderStats.size === 0) {
+            console.log('🔄 KV 폴백 사용');
+            for (const file of filteredFiles) {
+                if (!file.isdir) {
+                    const viewKey = `views:${file.path}`;
+                    const viewData = await kv.get(viewKey);
+                    const views = viewData ? parseInt(viewData as string) : 0;
+                    viewCounts.set(file.path, views);
+                    
+                    // 폴더별 집계
+                    const pathParts = file.path.split('/');
+                    if (pathParts.length >= 3) {
+                        const folderPath = `${pathParts[0]}/${pathParts[1]}`;
+                        if (!folderStats.has(folderPath)) {
+                            folderStats.set(folderPath, { totalViews: 0, topVideoPath: '' });
+                        }
+                        const stats = folderStats.get(folderPath)!;
+                        stats.totalViews += views;
+                        if (!stats.topVideoPath || views > (viewCounts.get(stats.topVideoPath) || 0)) {
+                            stats.topVideoPath = file.path;
+                        }
+                    }
+                }
+            }
         }
 
         for (const file of filteredFiles) {
