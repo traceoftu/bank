@@ -640,39 +640,37 @@ class UploaderApp:
                 self.log(f"  📁 폴더 대표 썸네일 생성 중...")
                 
                 path_parts = upload_path.split('/')
-                # 예: 성인(0) / 이정국(1) / 2602광주(2)
+                # 예: 성인(0) / 이정국(1) / 서울강북(2) / 2602광주(3)
                 
-                # 강사 단계 (대표 폴더 - 보통 2번째 단계)
-                if len(path_parts) >= 2:
-                    rep_folder_name = path_parts[1]
-                    rep_folder_path = "/".join(path_parts[:2])
-                    rep_time = self.thumb_time_rep_var.get().strip()
-                    if not self.validate_time_format(rep_time): rep_time = "00:05:00"
+                # 각 폴더 단계별로 썸네일 생성 (카테고리 단계 제외)
+                for depth in range(1, len(path_parts)):
+                    current_folder_name = path_parts[depth]
+                    current_full_path = "/".join(path_parts[:depth+1])
                     
-                    self.log(f"    📷 대표 폴더 ({rep_folder_name}) 썸네일 생성 중...")
-                    thumb_p = os.path.join(os.environ.get('TEMP', '/tmp'), f"rep_{rep_folder_name}.jpg")
-                    subprocess.run(["ffmpeg", "-y", "-i", first_video, "-ss", rep_time, "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_p], 
-                                   capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
-                    if os.path.exists(thumb_p):
-                        remote_p = f"{R2_BUCKET}/thumbnails/{rep_folder_path}/{rep_folder_name}.jpg"
-                        subprocess.run(["rclone", "copyto", thumb_p, remote_p], capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
-                        try: os.remove(thumb_p)
-                        except: pass
-                
-                # 강의 단계 (영상 폴더 - 보통 3번째 단계 이상)
-                if len(path_parts) >= 3:
-                    vid_folder_name = path_parts[-1]
-                    vid_time = self.thumb_time_vid_var.get().strip()
-                    if not self.validate_time_format(vid_time): vid_time = "00:10:00"
+                    # 시간 설정 선택 (2번째 단계면 '대표폴더' 시간, 그 이후는 '영상폴더' 시간)
+                    if depth == 1:
+                        time_str = self.thumb_time_rep_var.get().strip()
+                        label = "대표 폴더"
+                        if not self.validate_time_format(time_str): time_str = "00:05:00"
+                    else:
+                        time_str = self.thumb_time_vid_var.get().strip()
+                        label = "하위 폴더"
+                        if not self.validate_time_format(time_str): time_str = "00:10:00"
                     
-                    self.log(f"    📷 영상 폴더 ({vid_folder_name}) 썸네일 생성 중...")
-                    thumb_p = os.path.join(os.environ.get('TEMP', '/tmp'), f"vid_{vid_folder_name}.jpg")
-                    subprocess.run(["ffmpeg", "-y", "-i", first_video, "-ss", vid_time, "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_p], 
+                    self.log(f"    📷 {label} ({current_folder_name}) 썸네일 생성 중...")
+                    temp_thumb = os.path.join(os.environ.get('TEMP', '/tmp'), f"folder_{hashlib.md5(current_full_path.encode()).hexdigest()[:8]}.jpg")
+                    
+                    # ffmpeg로 썸네일 추출
+                    subprocess.run(["ffmpeg", "-y", "-i", first_video, "-ss", time_str, 
+                                   "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", temp_thumb], 
                                    capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
-                    if os.path.exists(thumb_p):
-                        remote_p = f"{R2_BUCKET}/thumbnails/{upload_path}/{vid_folder_name}.jpg"
-                        subprocess.run(["rclone", "copyto", thumb_p, remote_p], capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
-                        try: os.remove(thumb_p)
+                    
+                    if os.path.exists(temp_thumb):
+                        # 썸네일 업로드: thumbnails/폴더경로/폴더명.jpg
+                        remote_thumb = f"{R2_BUCKET}/thumbnails/{current_full_path}/{current_folder_name}.jpg"
+                        subprocess.run(["rclone", "copyto", temp_thumb, remote_thumb], 
+                                       capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
+                        try: os.remove(temp_thumb)
                         except: pass
         # -------------------------------------------------------------
 
