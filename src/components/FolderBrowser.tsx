@@ -148,6 +148,7 @@ function FolderBrowserContent() {
     const [canCast, setCanCast] = useState(false);
     const [isMp4Mode, setIsMp4Mode] = useState(false);
     const [resumeData, setResumeData] = useState<{ path: string, time: number } | null>(null);
+    const [isZoomed, setIsZoomed] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const playerContainerRef = useRef<HTMLDivElement>(null);
     const hlsRef = useRef<Hls | null>(null);
@@ -171,7 +172,18 @@ function FolderBrowserContent() {
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+
+        const handleFullscreenChange = () => {
+            if (!document.fullscreenElement) {
+                setIsZoomed(false);
+            }
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
     }, [playingUrl]);
 
     // 핀치 제스처 리스너 등록 (Android Chrome passive listener 이슈 해결)
@@ -199,29 +211,37 @@ function FolderBrowserContent() {
                     e.touches[0].pageY - e.touches[1].pageY
                 );
 
-                // 핀치 아웃 (확대) -> 전체화면 진입
+                // 핀치 아웃 (확대)
                 if (dist > lastTouchDistance.current * 1.25) {
                     const video = videoRef.current;
                     const playerContainer = playerContainerRef.current;
 
                     if (video && playerContainer) {
                         if (!document.fullscreenElement) {
-                            // Android/Chrome: 컨테이너를 전체화면으로
+                            // 전체화면 진입
                             if (playerContainer.requestFullscreen) {
                                 playerContainer.requestFullscreen().catch(() => { });
                             }
-                            // iOS/Safari: 비디오를 전체화면으로 (Native UI)
                             else if ((video as any).webkitEnterFullscreen) {
                                 (video as any).webkitEnterFullscreen();
                             }
+                        } else if (!isIOS && !isZoomed) {
+                            // 전체화면 상태에서 추가 확대 -> 꽉 채움 모드
+                            setIsZoomed(true);
                         }
                     }
                     lastTouchDistance.current = dist;
                 }
-                // 핀치 인 (축소) -> 전체화면 해제
+                // 핀치 인 (축소)
                 else if (dist < lastTouchDistance.current * 0.75) {
                     if (document.fullscreenElement) {
-                        document.exitFullscreen().catch(() => { });
+                        if (!isIOS && isZoomed) {
+                            // 꽉 채움 모드 해제
+                            setIsZoomed(false);
+                        } else {
+                            // 전체화면 해제
+                            document.exitFullscreen().catch(() => { });
+                        }
                     } else if (isIOS && (videoRef.current as any)?.webkitExitFullscreen) {
                         (videoRef.current as any).webkitExitFullscreen();
                     }
@@ -690,7 +710,7 @@ function FolderBrowserContent() {
                             playsInline
                             webkit-playsinline="true"
                             onTimeUpdate={handleTimeUpdate}
-                            className="w-full h-full max-h-[100vh] object-contain bg-black"
+                            className={`w-full h-full max-h-[100vh] ${isZoomed ? 'object-cover' : 'object-contain'} bg-black`}
                         />
 
                         {/* 이어보기 안내창 - 더 콤팩트하게 수정 */}
