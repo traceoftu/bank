@@ -57,51 +57,30 @@ export async function GET(request: NextRequest) {
             console.error('D1 views query error:', e);
         }
         
-        // D1 데이터로 직접 폴더별 집계
-        if (viewCounts.size > 0) {
-            console.log('📊 D1 데이터로 폴더별 집계 시작');
-            for (const [videoPath, views] of viewCounts.entries()) {
-                const pathParts = videoPath.split('/');
+        // 썸네일 경로는 KV 파일 목록에서 직접 설정
+        for (const file of filteredFiles) {
+            if (!file.isdir) {
+                // 조회수 정보 가져오기
+                const views = viewCounts.get(file.path) || 0;
+                viewCounts.set(file.path, views);
+                
+                // 폴더별 집계
+                const pathParts = file.path.split('/');
                 if (pathParts.length >= 3) {
                     const folderPath = `${pathParts[0]}/${pathParts[1]}`;
                     if (!folderStats.has(folderPath)) {
-                        folderStats.set(folderPath, { totalViews: 0, topVideoPath: '' });
+                        // 첫 영상으로 썸네일 설정
+                        const pathParts = file.path.split('/');
+                        const filename = pathParts[pathParts.length - 1];
+                        const folderPath = pathParts.slice(0, -1).join('/');
+                        
+                        folderStats.set(folderPath, { 
+                            totalViews: 0, 
+                            topVideoPath: `${folderPath}/${filename}` 
+                        });
                     }
                     const stats = folderStats.get(folderPath)!;
                     stats.totalViews += views;
-                    // 첫 영상으로 썸네일 설정 (조회수 많은 영상 대신)
-                    if (!stats.topVideoPath) {
-                        stats.topVideoPath = videoPath;
-                    }
-                }
-            }
-            console.log('📊 D1 집계 완료, 폴더 수:', folderStats.size);
-        }
-        
-        // D1에 데이터가 없으면 KV 폴백
-        if (folderStats.size === 0) {
-            console.log('🔄 KV 폴백 사용');
-            for (const file of filteredFiles) {
-                if (!file.isdir) {
-                    const viewKey = `views:${file.path}`;
-                    const viewData = await kv.get(viewKey);
-                    const views = viewData ? parseInt(viewData as string) : 0;
-                    viewCounts.set(file.path, views);
-                    
-                    // 폴더별 집계
-                    const pathParts = file.path.split('/');
-                    if (pathParts.length >= 3) {
-                        const folderPath = `${pathParts[0]}/${pathParts[1]}`;
-                        if (!folderStats.has(folderPath)) {
-                            folderStats.set(folderPath, { totalViews: 0, topVideoPath: '' });
-                        }
-                        const stats = folderStats.get(folderPath)!;
-                        stats.totalViews += views;
-                        // 첫 영상으로 썸네일 설정 (조회수 많은 영상 대신)
-                        if (!stats.topVideoPath) {
-                            stats.topVideoPath = file.path;
-                        }
-                    }
                 }
             }
         }
