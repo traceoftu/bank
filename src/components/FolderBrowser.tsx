@@ -740,15 +740,19 @@ function FolderBrowserContent() {
                                 </div>
                             )}
 
-                            {categoryData.map((row) => (
-                                <CategoryRow
-                                    key={row.category}
-                                    category={row.category}
-                                    path={row.path}
-                                    folders={row.folders}
-                                    onFolderClick={handleFolderClick}
-                                />
-                            ))}
+                            {categoryData.length > 0 && (
+                                <div className="space-y-12">
+                                    {categoryData.map((row) => (
+                                        <CategoryRow
+                                            key={row.category}
+                                            category={row.category}
+                                            path={row.path}
+                                            folders={row.folders}
+                                            onFolderClick={handleFolderClick}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </>
                     )}
 
