@@ -32,8 +32,18 @@ export async function GET(request: NextRequest) {
         }
 
         // 폴더 목록 추출 (path에서 하위 폴더 찾기)
-        const folderSet = new Set<string>();
+        const folderMap = new Map<string, { name: string; path: string; totalViews: number; thumbnailPath: string }>();
         const videos: any[] = [];
+
+        // 조회수 데이터 가져오기
+        const viewCounts = new Map<string, number>();
+        for (const file of filteredFiles) {
+            if (!file.isdir) {
+                const viewKey = `views:${file.path}`;
+                const viewData = await kv.get(viewKey);
+                viewCounts.set(file.path, viewData ? parseInt(viewData as string) : 0);
+            }
+        }
 
         for (const file of filteredFiles) {
             const relativePath = path ? file.path.replace(path + '/', '') : file.path;
@@ -43,7 +53,26 @@ export async function GET(request: NextRequest) {
                 // 하위 폴더가 있음
                 const folderName = parts[0];
                 const folderPath = path ? `${path}/${folderName}` : folderName;
-                folderSet.add(JSON.stringify({ name: folderName, path: folderPath }));
+                
+                if (!folderMap.has(folderPath)) {
+                    folderMap.set(folderPath, {
+                        name: folderName,
+                        path: folderPath,
+                        totalViews: 0,
+                        thumbnailPath: ''
+                    });
+                }
+                
+                // 폴더 내 영상 조회수 집계
+                if (!file.isdir) {
+                    const folderInfo = folderMap.get(folderPath)!;
+                    folderInfo.totalViews += viewCounts.get(file.path) || 0;
+                    
+                    // 가장 조회수 많은 영상을 썸네일로 설정
+                    if (!folderInfo.thumbnailPath || viewCounts.get(file.path)! > viewCounts.get(folderInfo.thumbnailPath)!) {
+                        folderInfo.thumbnailPath = file.path;
+                    }
+                }
             } else {
                 // 현재 경로의 파일
                 videos.push({
@@ -60,14 +89,16 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        const folders = Array.from(folderSet).map(f => {
-            const parsed = JSON.parse(f);
-            return {
-                name: parsed.name,
-                path: parsed.path,
+        // 조회수 많은 순으로 폴더 정렬
+        const folders = Array.from(folderMap.values())
+            .sort((a, b) => b.totalViews - a.totalViews)
+            .map(folder => ({
+                name: folder.name,
+                path: folder.path,
                 isdir: true,
-            };
-        });
+                totalViews: folder.totalViews,
+                thumbnailPath: folder.thumbnailPath
+            }));
 
         return NextResponse.json({
             success: true,
