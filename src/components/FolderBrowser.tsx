@@ -75,7 +75,7 @@ function FolderBrowserContent() {
     const [items, setItems] = useState<FileItem[]>([]);
     const [popularVideos, setPopularVideos] = useState<PopularVideo[]>([]);
     const [categoryData, setCategoryData] = useState<CategoryVideos[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [playingUrl, setPlayingUrl] = useState<string | null>(null);
     const [playingPath, setPlayingPath] = useState<string | null>(null);
