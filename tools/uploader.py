@@ -133,6 +133,22 @@ class UploaderApp:
         self.thumbnail_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(option_frame, text="썸네일 자동 생성 및 업로드", variable=self.thumbnail_var).pack(anchor=tk.W)
         
+        # 썸네일 시간 설정
+        thumb_time_frame = ttk.Frame(option_frame)
+        thumb_time_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        ttk.Label(thumb_time_frame, text="썸네일 추출 시간:").pack(side=tk.LEFT)
+        self.thumb_time_var = tk.StringVar(value="00:00:01")
+        thumb_time_entry = ttk.Entry(thumb_time_frame, textvariable=self.thumb_time_var, width=10)
+        thumb_time_entry.pack(side=tk.LEFT, padx=(5, 5))
+        ttk.Label(thumb_time_frame, text="(HH:MM:SS)").pack(side=tk.LEFT)
+        
+        # 썸네일 추출 전용 버튼
+        thumb_only_frame = ttk.Frame(option_frame)
+        thumb_only_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        ttk.Button(thumb_only_frame, text="썸네일만 추출하기", command=self.extract_thumbnail_only).pack(side=tk.LEFT)
+        
         # 압축 옵션
         compress_frame = ttk.Frame(option_frame)
         compress_frame.pack(fill=tk.X, pady=(5, 0))
@@ -533,6 +549,70 @@ class UploaderApp:
         
         return result.returncode == 0
     
+    def extract_thumbnail_only(self):
+        """썸네일만 추출하는 전용 함수"""
+        if not self.selected_files:
+            messagebox.showwarning("경고", "파일을 먼저 선택해주세요.")
+            return
+        
+        # 시간 형식 검증
+        time_str = self.thumb_time_var.get().strip()
+        if not self.validate_time_format(time_str):
+            messagebox.showerror("오류", "시간 형식이 올바르지 않습니다.\nHH:MM:SS 형식으로 입력해주세요.")
+            return
+        
+        # 영상 파일만 필터링
+        video_files = [f for f in self.selected_files if os.path.splitext(f)[1].lower() in VIDEO_EXTENSIONS]
+        
+        if not video_files:
+            messagebox.showwarning("경고", "영상 파일이 없습니다.")
+            return
+        
+        # 저장 폴더 선택
+        save_dir = filedialog.askdirectory(title="썸네일 저장 폴더 선택")
+        if not save_dir:
+            return
+        
+        self.log(f"📷 썸네일 추출 시작: {len(video_files)}개 파일")
+        
+        success = 0
+        for file_path in video_files:
+            filename = os.path.basename(file_path)
+            name_without_ext = os.path.splitext(filename)[0]
+            thumb_path = os.path.join(save_dir, f"{name_without_ext}.jpg")
+            
+            self.log(f"  📷 {filename} → 썸네일 추출 중...")
+            
+            # ffmpeg로 썸네일 생성
+            ffmpeg_result = subprocess.run(
+                ["ffmpeg", "-y", "-i", file_path, "-ss", time_str, 
+                 "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_path],
+                capture_output=True, text=True, creationflags=SUBPROCESS_FLAGS
+            )
+            
+            if os.path.exists(thumb_path):
+                self.log(f"  ✅ 썸네일 생성 완료: {name_without_ext}.jpg")
+                success += 1
+            else:
+                self.log(f"  ⚠️ 썸네일 생성 실패: {filename}")
+                if ffmpeg_result.stderr:
+                    self.log(f"    에러: {ffmpeg_result.stderr.strip()}")
+        
+        self.log(f"🎉 썸네일 추출 완료: {success}/{len(video_files)}개 성공")
+        messagebox.showinfo("완료", f"썸네일 추출 완료!\n성공: {success}개\n실패: {len(video_files) - success}개")
+    
+    def validate_time_format(self, time_str):
+        """시간 형식 검증 (HH:MM:SS)"""
+        try:
+            parts = time_str.split(':')
+            if len(parts) != 3:
+                return False
+            
+            h, m, s = map(int, parts)
+            return 0 <= h <= 23 and 0 <= m <= 59 and 0 <= s <= 59
+        except:
+            return False
+    
     def upload_files(self, upload_path):
         total = len(self.selected_files)
         success = 0
@@ -675,9 +755,14 @@ class UploaderApp:
                     self.log(f"  📷 썸네일 생성 중...")
                     thumb_path = os.path.join(os.environ.get('TEMP', '/tmp'), f"{filename}.thumb.jpg")
                     
+                    # 사용자 설정 시간으로 썸네일 생성
+                    time_str = self.thumb_time_var.get().strip()
+                    if not self.validate_time_format(time_str):
+                        time_str = "00:00:01"  # 기본값
+                    
                     # ffmpeg로 썸네일 생성
                     ffmpeg_result = subprocess.run(
-                        ["ffmpeg", "-y", "-i", file_path, "-ss", "00:00:01", 
+                        ["ffmpeg", "-y", "-i", file_path, "-ss", time_str, 
                          "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_path],
                         capture_output=True, text=False,
                         creationflags=SUBPROCESS_FLAGS

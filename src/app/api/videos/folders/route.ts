@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
         if (query) {
             // 검색 모드: 파일명에서 검색
             const searchPattern = query.toLowerCase();
-            filteredFiles = allFiles.filter((f: any) => 
-                f.name.toLowerCase().includes(searchPattern) || 
+            filteredFiles = allFiles.filter((f: any) =>
+                f.name.toLowerCase().includes(searchPattern) ||
                 f.path.toLowerCase().includes(searchPattern)
             );
         } else if (path) {
@@ -38,14 +38,14 @@ export async function GET(request: NextRequest) {
         // 조회수 데이터 가져오기 (Home API와 같은 방식)
         const viewCounts = new Map<string, number>();
         const folderStats = new Map<string, { totalViews: number; topVideoPath: string }>();
-        
+
         try {
             const db = (env as any).DB as D1Database;
             if (db) {
                 // Home API와 같은 단순 조회 방식
                 const result = await db.prepare('SELECT path, count FROM views').all();
                 console.log('📊 D1 views 데이터 개수:', result.results?.length || 0);
-                
+
                 if (result.results) {
                     for (const row of result.results as any[]) {
                         viewCounts.set(row.path, row.count);
@@ -56,14 +56,14 @@ export async function GET(request: NextRequest) {
         } catch (e) {
             console.error('D1 views query error:', e);
         }
-        
+
         // 썸네일 경로는 KV 파일 목록에서 직접 설정
         for (const file of filteredFiles) {
             if (!file.isdir) {
                 // 조회수 정보 가져오기
                 const views = viewCounts.get(file.path) || 0;
                 viewCounts.set(file.path, views);
-                
+
                 // 폴더별 집계
                 const pathParts = file.path.split('/');
                 if (pathParts.length >= 3) {
@@ -72,10 +72,10 @@ export async function GET(request: NextRequest) {
                         // 첫 영상으로 썸네일 설정
                         const filename = pathParts[pathParts.length - 1];
                         const videoFolderPath = pathParts.slice(0, -1).join('/');
-                        
-                        folderStats.set(folderPath, { 
-                            totalViews: 0, 
-                            topVideoPath: `${videoFolderPath}/${filename}` 
+
+                        folderStats.set(folderPath, {
+                            totalViews: 0,
+                            topVideoPath: `${videoFolderPath}/${filename}`
                         });
                     }
                     const stats = folderStats.get(folderPath)!;
@@ -87,12 +87,12 @@ export async function GET(request: NextRequest) {
         for (const file of filteredFiles) {
             const relativePath = path ? file.path.replace(path + '/', '') : file.path;
             const parts = relativePath.split('/');
-            
+
             // 현재 폴더의 직접 하위 폴더만 처리 (성인 → 이정국, 배현기 등)
             if (parts.length >= 2) {
                 const folderName = parts[0];
                 const folderPath = path ? `${path}/${folderName}` : folderName;
-                
+
                 if (!folderMap.has(folderPath)) {
                     // D1 집계 데이터 사용
                     const stats = folderStats.get(folderPath);
@@ -103,20 +103,10 @@ export async function GET(request: NextRequest) {
                         thumbnailPath: ''
                     });
                 }
-                
-                // 폴더의 첫 번째 영상으로 썸네일 설정
+
+                // 폴더의 썸네일 설정: {폴더경로}/{폴더명}.jpg (프론트엔드에서 thumbnails/ 접두어와 .jpg 접미어 추가함)
                 const folderInfo = folderMap.get(folderPath)!;
-                if (!folderInfo.thumbnailPath) {
-                    // 해당 폴더의 첫 번째 영상 파일 찾기
-                    const folderVideos = allFiles
-                        .filter(f => f.path.startsWith(folderPath + '/') && !f.path.includes('/hls/'))
-                        .filter(f => !f.name.includes('.m3u8') && !f.name.includes('.ts'));
-                    
-                    if (folderVideos.length > 0) {
-                        const firstVideo = folderVideos[0]; // 첫 번째 영상
-                        folderInfo.thumbnailPath = firstVideo.path;
-                    }
-                }
+                folderInfo.thumbnailPath = `${folderPath}/${folderName}`;
             } else {
                 // 현재 경로의 파일
                 videos.push({

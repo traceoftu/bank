@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         // D1에서 조회수 일괄 조회
         const db = (env as any).DB as D1Database;
         let viewsMap: Record<string, number> = {};
-        
+
         if (db) {
             try {
                 const result = await db.prepare('SELECT path, count FROM views').all();
@@ -94,14 +94,10 @@ export async function GET(request: NextRequest) {
                 .slice(0, 10)
                 .map(({ category, ...rest }) => rest);
 
-            // 조회수 가장 높은 영상의 썸네일 경로 계산
-            const topVideo = categoryVideos[0];
             let thumbnailPath = '';
-            
-            if (topVideo) {
-                // 영상 경로: 성인/이정국/2601광주서부/영상.mp4
-                // 썸네일 경로: thumbnails/성인/이정국/2601광주서부/영상.mp4.jpg
-                thumbnailPath = `thumbnails/${topVideo.path}`;
+            if (folder) {
+                // 폴더 내 {폴더명}.jpg 사용 (프론트엔드에서 thumbnails/ 접두어와 .jpg 접미어 추가함)
+                thumbnailPath = `${folder}/${folder}`;
             }
 
             return {

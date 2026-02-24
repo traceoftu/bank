@@ -91,20 +91,21 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
                             console.log('✅ 폴더 썸네일 로드 성공:', thumbnailPath);
                         }}
                         onError={(e) => {
-                            console.log('❌ 폴더 썸네일 로드 실패:', thumbnailPath);
-                            // 대문자로 재시도
+                            // 대문자 .JPG로 재시도
                             if (!e.currentTarget.src.includes('.JPG')) {
                                 e.currentTarget.src = `https://videos.haebomsoft.com/thumbnails/${thumbnailPath}.JPG`;
-                            } else {
-                                // 이미지 숨기고 기본 아이콘 표시 (DOM 조작 최소화)
-                                e.currentTarget.style.display = 'none';
-                                const parent = e.currentTarget.parentElement;
-                                if (parent && !parent.querySelector('.fallback-icon')) {
-                                    const fallback = document.createElement('div');
-                                    fallback.className = 'fallback-icon w-full h-full flex items-center justify-center bg-zinc-800';
-                                    fallback.innerHTML = '<span class="text-4xl text-zinc-600">📁</span>';
-                                    parent.appendChild(fallback);
-                                }
+                                return;
+                            }
+
+                            // 로드 실패 시 아이콘 표시
+                            console.log('❌ 폴더 썸네일 로드 실패:', thumbnailPath);
+                            e.currentTarget.style.display = 'none';
+                            const parent = e.currentTarget.parentElement;
+                            if (parent && !parent.querySelector('.fallback-icon')) {
+                                const fallback = document.createElement('div');
+                                fallback.className = 'fallback-icon w-full h-full flex items-center justify-center bg-zinc-800';
+                                fallback.innerHTML = '<span class="text-4xl text-zinc-600">📁</span>';
+                                parent.appendChild(fallback);
                             }
                         }}
                     />
