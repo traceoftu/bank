@@ -735,7 +735,7 @@ function FolderBrowserContent() {
             )}
 
             {!loading && !error && (
-                <>
+                <div data-loaded="true">
                     {!currentPath && !searchQuery && (
                         <>
                             {popularVideos.length > 0 && (
@@ -847,7 +847,7 @@ function FolderBrowserContent() {
                             <p>표시할 항목이 없습니다.</p>
                         </div>
                     )}
-                </>
+                </div>
             )}
         </div>
     );

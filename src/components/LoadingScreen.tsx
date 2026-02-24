@@ -15,8 +15,25 @@ export default function LoadingScreen() {
         // 첫 방문인지 확인 (sessionStorage 사용)
         const hasVisited = sessionStorage.getItem('jbch-visited');
         if (hasVisited) {
-            // 이미 방문했으면 로고 표시 안 함
-            setIsLoading(false);
+            // 이미 방문했으면 데이터 로드 확인 후 종료
+            const checkDataLoaded = () => {
+                // 데이터 로드 확인 (간단한 방법)
+                const hasData = document.querySelector('[data-loaded="true"]');
+                if (hasData) {
+                    setIsLoading(false);
+                } else {
+                    // 0.5초 후 다시 확인
+                    setTimeout(checkDataLoaded, 500);
+                }
+            };
+            
+            // 최대 3초 대기
+            setTimeout(() => {
+                setIsLoading(false);
+            }, 3000);
+            
+            // 데이터 로드 확인 시작
+            setTimeout(checkDataLoaded, 500);
             return;
         }
 
