@@ -70,7 +70,11 @@ export async function GET(request: NextRequest) {
                     
                     // 가장 조회수 많은 영상을 썸네일로 설정
                     if (!folderInfo.thumbnailPath || viewCounts.get(file.path)! > viewCounts.get(folderInfo.thumbnailPath)!) {
-                        folderInfo.thumbnailPath = file.path;
+                        // 썸네일 경로를 thumbnails 폴더 기준으로 설정
+                        const pathParts = file.path.split('/');
+                        const filename = pathParts[pathParts.length - 1].replace(/\.[^.]+$/, '');
+                        const folderPath = pathParts.slice(0, -1).join('/');
+                        folderInfo.thumbnailPath = `${folderPath}/${filename}`;
                     }
                 }
             } else {

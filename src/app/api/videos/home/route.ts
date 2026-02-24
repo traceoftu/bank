@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
             return a.localeCompare(b);
         });
 
-        // 카테고리별 TOP 10
+        // 카테고리별 TOP 10 + 대표 썸네일
         const categories = sortedFolders.map(folder => {
             const categoryVideos = allVideos
                 .filter(v => v.category === folder)
@@ -94,10 +94,21 @@ export async function GET(request: NextRequest) {
                 .slice(0, 10)
                 .map(({ category, ...rest }) => rest);
 
+            // 조회수 가장 높은 영상의 썸네일 경로 계산
+            const topVideo = categoryVideos[0];
+            let thumbnailPath = '';
+            
+            if (topVideo) {
+                // 영상 경로: 성인/이정국/2601광주서부/영상.mp4
+                // 썸네일 경로: thumbnails/성인/이정국/2601광주서부/영상.mp4.jpg
+                thumbnailPath = `thumbnails/${topVideo.path}`;
+            }
+
             return {
                 category: folder,
                 path: folder,
                 videos: categoryVideos,
+                thumbnailPath: thumbnailPath, // 대표 썸네일 경로 추가
             };
         });
 

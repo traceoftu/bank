@@ -25,18 +25,68 @@ interface CategoryVideos {
     category: string;
     path: string;
     folders: any[];
+    thumbnailPath: string;
 }
 
 // 카테고리 표시 순서 (이 목록에 없는 폴더는 마지막에 가나다순으로 표시)
 const CATEGORY_ORDER = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
 
-function CategoryRow({ category, path, folders, onFolderClick }: {
+function CategoryCard({ category, path, thumbnailPath, totalViews, onClick }: {
+    category: string;
+    path: string;
+    thumbnailPath: string;
+    totalViews: number;
+    onClick: (path: string) => void;
+}) {
+    const handleClick = () => {
+        onClick(path);
+    };
+
+    return (
+        <div 
+            className="group cursor-pointer transition-all duration-300 hover:scale-105"
+            onClick={handleClick}
+        >
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800 ring-1 ring-white/5">
+                {thumbnailPath ? (
+                    <img
+                        src={`https://videos.haebomsoft.com/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.jpg`}
+                        alt={category}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        onLoad={() => {
+                            console.log('✅ 카테고리 썸네일 로드 성공:', thumbnailPath);
+                        }}
+                        onError={(e) => {
+                            console.log('❌ 카테고리 썸네일 로드 실패:', thumbnailPath);
+                            e.currentTarget.src = '/placeholder.jpg';
+                        }}
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                        <span className="text-4xl text-zinc-600">📁</span>
+                    </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute bottom-0 left-0 right-0 p-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                    <h3 className="text-white font-semibold text-sm truncate">{category}</h3>
+                    <p className="text-zinc-300 text-xs">조회수: {totalViews.toLocaleString()}</p>
+                </div>
+            </div>
+            <h3 className="mt-2 text-white font-medium text-sm truncate">{category}</h3>
+            <p className="text-zinc-400 text-xs">조회수: {totalViews.toLocaleString()}</p>
+        </div>
+    );
+}
+
+function CategoryRow({ category, path, folders, thumbnailPath, onFolderClick }: {
     category: string;
     path: string;
     folders: any[];
+    thumbnailPath: string;
     onFolderClick: (path: string) => void;
 }) {
-    if (folders.length === 0) return null;
+    // 카테고리 전체 조회수 계산
+    const totalViews = folders.reduce((sum, folder) => sum + (folder.totalViews || 0), 0);
 
     return (
         <div className="mb-10 last:mb-0">
@@ -48,6 +98,20 @@ function CategoryRow({ category, path, folders, onFolderClick }: {
                 <span className="text-sm font-normal text-zinc-500 group-hover:translate-x-1 transition-transform">모두 보기 ›</span>
             </h2>
             <div className="flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scrollbar-hide -mx-2 px-2">
+                {/* 카테고리 대표 썸네일 (가장 앞에 표시) */}
+                {thumbnailPath && (
+                    <div className="flex-shrink-0 w-44 sm:w-56">
+                        <CategoryCard
+                            category={category}
+                            path={path}
+                            thumbnailPath={thumbnailPath}
+                            totalViews={totalViews}
+                            onClick={onFolderClick}
+                        />
+                    </div>
+                )}
+                
+                {/* 하위 폴더 목록 */}
                 {folders.map((folder) => (
                     <div key={folder.path} className="flex-shrink-0 w-44 sm:w-56">
                         <FolderCard
@@ -83,12 +147,49 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
             <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800 ring-1 ring-white/5">
                 {thumbnailPath ? (
                     <img
-                        src={`https://videos.haebomsoft.com/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.jpg`}
+                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.jpg`}
                         alt={name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        onLoad={() => {
+                            console.log('✅ 썸네일 로드 성공:', thumbnailPath);
+                        }}
                         onError={(e) => {
-                            // 썸네일 로드 실패 시 기본 이미지
-                            e.currentTarget.src = '/placeholder.jpg';
+                            console.log('❌ 썸네일 로드 실패:', thumbnailPath);
+                            
+                            // 썸네일 로드 실패 시 여러 형식 시도
+                            const pathParts = thumbnailPath.split('/');
+                            const filename = pathParts[pathParts.length - 1].replace(/\.[^.]+$/, '');
+                            const folderPath = pathParts.slice(0, -1).join('/');
+                            
+                            // 시도할 URL 목록 (실제 썸네일 구조에 맞춤)
+                            const urls = [
+                                `https://videos.haebomsoft.com/thumbnails/${folderPath}/${filename}.jpg`,
+                                `https://videos.haebomsoft.com/thumbnails/${folderPath}/${filename.replace(/\.[^.]+$/, '')}.jpg`,
+                                `https://videos.haebomsoft.com/thumbnails/${folderPath}/thumbnail.jpg`,
+                                `https://videos.haebomsoft.com/${folderPath}/hls/${filename}/thumbnail.jpg`,
+                                `https://videos.haebomsoft.com/${folderPath}/hls/${filename}.jpg`,
+                                `https://videos.haebomsoft.com/${folderPath}/${filename}.jpg`,
+                                `https://videos.haebomsoft.com/${thumbnailPath.replace(/\.[^.]+$/, '')}.jpg`
+                            ];
+                            
+                            console.log('🔄 다른 썸네일 경로 시도:', urls);
+                            
+                            // 순차적으로 시도
+                            let urlIndex = 0;
+                            const tryNextUrl = () => {
+                                if (urlIndex < urls.length) {
+                                    const img = e.currentTarget;
+                                    img.src = urls[urlIndex];
+                                    console.log(`🔄 시도 ${urlIndex + 1}:`, urls[urlIndex]);
+                                    urlIndex++;
+                                } else {
+                                    console.log('❌ 모든 썸네일 경로 실패, 기본 이미지 사용');
+                                    e.currentTarget.src = '/placeholder.jpg';
+                                }
+                            };
+                            
+                            e.currentTarget.onerror = tryNextUrl;
+                            tryNextUrl();
                         }}
                     />
                 ) : (
@@ -315,10 +416,14 @@ function FolderBrowserContent() {
                                 totalViews: folder.totalViews || 0
                             })) || [];
                         
+                        console.log(`📁 ${category.category} 폴더 데이터:`, folders);
+                        
                         return {
                             category: category.category,
                             path: category.path,
-                            folders: folders
+                            folders: folders,
+                            // API에서 계산한 대표 썸네일 경로 사용
+                            thumbnailPath: category.thumbnailPath || ''
                         };
                     })
                 );
@@ -717,6 +822,7 @@ function FolderBrowserContent() {
                                     category={row.category}
                                     path={row.path}
                                     folders={row.folders}
+                                    thumbnailPath={row.thumbnailPath}
                                     onFolderClick={handleFolderClick}
                                 />
                             ))}
