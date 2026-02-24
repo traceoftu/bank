@@ -12,6 +12,10 @@ export default function LoadingScreen() {
     const [fadeout, setFadeout] = useState(false);
 
     useEffect(() => {
+        // body::before 오버레이 제거 (CSS에서 JS 로드 전 콘텐츠 숨김용)
+        // 방문 여부와 상관없이 JS가 로드되면 콘텐츠를 보여줌
+        document.body.classList.add('splash-done');
+
         // 첫 방문인지 확인 (sessionStorage 사용)
         const hasVisited = sessionStorage.getItem('jbch-visited');
         if (hasVisited) {
@@ -22,9 +26,6 @@ export default function LoadingScreen() {
 
         // 첫 방문 표시
         sessionStorage.setItem('jbch-visited', 'true');
-
-        // body::before 오버레이 제거 (CSS에서 JS 로드 전 콘텐츠 숨김용)
-        document.body.classList.add('splash-done');
 
         // 글자 하나씩 오른쪽→왼쪽으로 등장 (각 200ms 간격)
         const letterTimers = LOGO_TEXT.split('').map((_, i) =>
