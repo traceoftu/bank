@@ -35,13 +35,32 @@ export async function GET(request: NextRequest) {
         const folderMap = new Map<string, { name: string; path: string; totalViews: number; thumbnailPath: string }>();
         const videos: any[] = [];
 
-        // 조회수 데이터 가져오기
+        // 조회수 데이터 가져오기 (D1 우선, KV 폴백)
         const viewCounts = new Map<string, number>();
+        
+        // D1에서 조회수 일괄 조회
+        try {
+            const db = (env as any).DB as D1Database;
+            if (db) {
+                const result = await db.prepare('SELECT path, count FROM views').all();
+                if (result.results) {
+                    for (const row of result.results as any[]) {
+                        viewCounts.set(row.path, row.count);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('D1 views query error:', e);
+        }
+        
+        // KV 폴백 (기존 방식)
         for (const file of filteredFiles) {
             if (!file.isdir) {
                 const viewKey = `views:${file.path}`;
                 const viewData = await kv.get(viewKey);
-                viewCounts.set(file.path, viewData ? parseInt(viewData as string) : 0);
+                if (!viewCounts.has(file.path)) {
+                    viewCounts.set(file.path, viewData ? parseInt(viewData as string) : 0);
+                }
             }
         }
 
@@ -50,7 +69,7 @@ export async function GET(request: NextRequest) {
             const parts = relativePath.split('/');
             
             if (parts.length > 1) {
-                // 하위 폴더가 있음
+                // 하위 폴더가 있음 (2단계 이상 모두 포함)
                 const folderName = parts[0];
                 const folderPath = path ? `${path}/${folderName}` : folderName;
                 
@@ -63,7 +82,7 @@ export async function GET(request: NextRequest) {
                     });
                 }
                 
-                // 폴더 내 영상 조회수 집계
+                // 폴더 내 모든 영상 조회수 집계 (3단계 깊이까지)
                 if (!file.isdir) {
                     const folderInfo = folderMap.get(folderPath)!;
                     folderInfo.totalViews += viewCounts.get(file.path) || 0;
@@ -96,13 +115,16 @@ export async function GET(request: NextRequest) {
         // 조회수 많은 순으로 폴더 정렬
         const folders = Array.from(folderMap.values())
             .sort((a, b) => b.totalViews - a.totalViews)
-            .map(folder => ({
-                name: folder.name,
-                path: folder.path,
-                isdir: true,
-                totalViews: folder.totalViews,
-                thumbnailPath: folder.thumbnailPath
-            }));
+            .map(folder => {
+                console.log(`📁 폴더: ${folder.name}, 조회수: ${folder.totalViews}, 썸네일: ${folder.thumbnailPath}`);
+                return {
+                    name: folder.name,
+                    path: folder.path,
+                    isdir: true,
+                    totalViews: folder.totalViews,
+                    thumbnailPath: folder.thumbnailPath
+                };
+            });
 
         return NextResponse.json({
             success: true,
