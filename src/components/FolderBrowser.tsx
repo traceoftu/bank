@@ -24,43 +24,103 @@ interface PopularVideo {
 interface CategoryVideos {
     category: string;
     path: string;
-    videos: PopularVideo[];
+    folders: any[];
 }
 
 // 카테고리 표시 순서 (이 목록에 없는 폴더는 마지막에 가나다순으로 표시)
 const CATEGORY_ORDER = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
 
-function CategoryRow({ category, path, videos, onVideoClick, onHeaderClick }: {
+function CategoryRow({ category, path, folders, onFolderClick }: {
     category: string;
     path: string;
-    videos: PopularVideo[];
-    onVideoClick: (path: string) => void;
-    onHeaderClick: (path: string) => void;
+    folders: any[];
+    onFolderClick: (path: string) => void;
 }) {
-    if (videos.length === 0) return null;
+    if (folders.length === 0) return null;
 
     return (
         <div className="mb-10 last:mb-0">
             <h2
                 className="text-xl font-bold text-white mb-4 flex items-center gap-2 cursor-pointer hover:text-blue-400 transition-colors group"
-                onClick={() => onHeaderClick(path)}
+                onClick={() => onFolderClick(path)}
             >
                 {category}
                 <span className="text-sm font-normal text-zinc-500 group-hover:translate-x-1 transition-transform">모두 보기 ›</span>
             </h2>
             <div className="flex gap-4 overflow-x-auto overflow-y-hidden pb-4 scrollbar-hide -mx-2 px-2">
-                {videos.map((video) => (
-                    <div key={video.path} className="flex-shrink-0 w-44 sm:w-56">
-                        <VideoCard
-                            name={video.name}
-                            path={video.path}
-                            size={video.size}
-                            viewCount={video.views}
-                            onPlay={onVideoClick}
+                {/* 하위 폴더 목록만 표시 */}
+                {folders.map((folder) => (
+                    <div key={folder.path} className="flex-shrink-0 w-44 sm:w-56">
+                        <FolderCard
+                            name={folder.name}
+                            path={folder.path}
+                            thumbnailPath={folder.thumbnailPath}
+                            totalViews={folder.totalViews}
+                            onClick={onFolderClick}
                         />
                     </div>
                 ))}
             </div>
+        </div>
+    );
+}
+
+function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
+    name: string;
+    path: string;
+    thumbnailPath: string;
+    totalViews: number;
+    onClick: (path: string) => void;
+}) {
+    const handleClick = () => {
+        onClick(path);
+    };
+
+    return (
+        <div 
+            className="group cursor-pointer transition-all duration-300 hover:scale-105"
+            onClick={handleClick}
+        >
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800 ring-1 ring-white/5">
+                {thumbnailPath ? (
+                    <img
+                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath}.jpg`}
+                        alt={name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        onLoad={() => {
+                            console.log('✅ 폴더 썸네일 로드 성공:', thumbnailPath);
+                        }}
+                        onError={(e) => {
+                            console.log('❌ 폴더 썸네일 로드 실패:', thumbnailPath);
+                            // 대문자로 재시도
+                            if (!e.currentTarget.src.includes('.JPG')) {
+                                e.currentTarget.src = `https://videos.haebomsoft.com/thumbnails/${thumbnailPath}.JPG`;
+                            } else {
+                                // 이미지 숨기고 기본 아이콘 표시 (DOM 조작 최소화)
+                                e.currentTarget.style.display = 'none';
+                                const parent = e.currentTarget.parentElement;
+                                if (parent && !parent.querySelector('.fallback-icon')) {
+                                    const fallback = document.createElement('div');
+                                    fallback.className = 'fallback-icon w-full h-full flex items-center justify-center bg-zinc-800';
+                                    fallback.innerHTML = '<span class="text-4xl text-zinc-600">📁</span>';
+                                    parent.appendChild(fallback);
+                                }
+                            }
+                        }}
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                        <span className="text-4xl text-zinc-600">📁</span>
+                    </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute bottom-0 left-0 right-0 p-3 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                    <h3 className="text-white font-semibold text-sm truncate">{name}</h3>
+                    <p className="text-zinc-300 text-xs">조회수: {totalViews.toLocaleString()}</p>
+                </div>
+            </div>
+            <h3 className="mt-2 text-white font-medium text-sm truncate">{name}</h3>
+            <p className="text-zinc-400 text-xs">조회수: {totalViews.toLocaleString()}</p>
         </div>
     );
 }
@@ -75,6 +135,7 @@ function FolderBrowserContent() {
     const [items, setItems] = useState<FileItem[]>([]);
     const [popularVideos, setPopularVideos] = useState<PopularVideo[]>([]);
     const [categoryData, setCategoryData] = useState<CategoryVideos[]>([]);
+    // 초기 로딩 상태 설정
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [playingUrl, setPlayingUrl] = useState<string | null>(null);
@@ -211,38 +272,78 @@ function FolderBrowserContent() {
     }, [playParam]);
 
     const fetchItems = async (path: string, query: string) => {
+        console.log('🔄 fetchItems 시작:', { path, query });
         setLoading(true);
         setError(null);
         try {
-            const params: any = {};
-            if (query) {
-                params.q = query;
-            } else if (path) {
-                params.path = path;
-            }
-
-            const response = await axios.get(`/api/videos/folders`, { params });
-
-            if (response.data.data?.files) {
-                // 특정 순서로 폴더 정렬
-                const priority = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
-                const sortedFiles = [...response.data.data.files].sort((a, b) => {
-                    if (a.isdir && b.isdir) {
-                        const indexA = priority.indexOf(a.name);
-                        const indexB = priority.indexOf(b.name);
-                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                        if (indexA !== -1) return -1;
-                        if (indexB !== -1) return 1;
-                    }
-                    return a.name.localeCompare(b.name);
-                });
-                setItems(sortedFiles);
+            // 홈 화면일 때만 홈 API 호출
+            if (!path && !query) {
+                const res = await axios.get('/api/videos/home');
+                if (res.data.data) {
+                    setPopularVideos(res.data.data.top10 || []);
+                    // 카테고리 데이터를 폴더 기반으로 변환
+                    const categories = res.data.data.categories || [];
+                    const categoryFolders = await Promise.all(
+                        categories.map(async (category: any) => {
+                            // 각 카테고리의 하위 폴더 가져오기
+                            const folderRes = await axios.get('/api/videos/folders', {
+                                params: { path: category.path }
+                            });
+                            
+                            // 폴더만 필터링 (영상 제외) - API에서 이미 썸네일 경로 계산
+                            const folders = folderRes.data.data?.files
+                                .filter((item: any) => item.isdir)
+                                .map((folder: any) => ({
+                                    name: folder.name,
+                                    path: folder.path,
+                                    thumbnailPath: folder.thumbnailPath || '',
+                                    totalViews: folder.totalViews || 0
+                                })) || [];
+                            
+                            console.log(`📁 ${category.category} 폴더 데이터:`, folders);
+                            
+                            return {
+                                category: category.category,
+                                path: category.path,
+                                folders: folders
+                            };
+                        })
+                    );
+                    setCategoryData(categoryFolders);
+                }
             } else {
-                setItems([]);
+                const params: any = {};
+                if (query) {
+                    params.q = query;
+                } else if (path) {
+                    params.path = path;
+                }
+                const res = await axios.get('/api/videos/files', { params });
+                if (res.data.data) {
+                    // 특정 순서로 폴더 정렬
+                    const priority = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
+                    const sortedFiles = [...res.data.data.files].sort((a, b) => {
+                        if (a.isdir && b.isdir) {
+                            const indexA = priority.indexOf(a.name);
+                            const indexB = priority.indexOf(b.name);
+                            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                            if (indexA !== -1) return -1;
+                            if (indexB !== -1) return 1;
+                        }
+                        return a.name.localeCompare(b.name);
+                    });
+                    setItems(sortedFiles);
+                    console.log('✅ 데이터 설정 완료:', sortedFiles.length, '개');
+                } else {
+                    setItems([]);
+                    console.log('⚠️ 데이터 없음');
+                }
             }
         } catch (err: any) {
+            console.error('❌ fetchItems 에러:', err);
             setError(err.response?.data?.error || err.message || 'Failed to load folders');
         } finally {
+            console.log('🔄 setLoading(false) 호출');
             setLoading(false);
         }
     };
@@ -253,14 +354,43 @@ function FolderBrowserContent() {
             const res = await axios.get('/api/videos/home');
             if (res.data.data) {
                 setPopularVideos(res.data.data.top10 || []);
-                setCategoryData(res.data.data.categories || []);
+                // 카테고리 데이터를 폴더 기반으로 변환
+                const categories = res.data.data.categories || [];
+                const categoryFolders = await Promise.all(
+                    categories.map(async (category: any) => {
+                        // 각 카테고리의 하위 폴더 가져오기
+                        const folderRes = await axios.get('/api/videos/folders', {
+                            params: { path: category.path }
+                        });
+                        
+                        // 폴더만 필터링 (영상 제외) - API에서 이미 썸네일 경로 계산
+                        const folders = folderRes.data.data?.files
+                            .filter((item: any) => item.isdir)
+                            .map((folder: any) => ({
+                                name: folder.name,
+                                path: folder.path,
+                                thumbnailPath: folder.thumbnailPath || '',
+                                totalViews: folder.totalViews || 0
+                            })) || [];
+                        
+                        console.log(`📁 ${category.category} 폴더 데이터:`, folders);
+                        
+                        return {
+                            category: category.category,
+                            path: category.path,
+                            folders: folders
+                        };
+                    })
+                );
+                setCategoryData(categoryFolders);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to fetch home data:', err);
         }
     };
 
     useEffect(() => {
+        console.log('🔄 useEffect 호출:', { currentPath, searchQuery });
         fetchItems(currentPath, searchQuery);
         if (!currentPath && !searchQuery) {
             fetchHomeData();
@@ -292,6 +422,8 @@ function FolderBrowserContent() {
             const lastViewed = localStorage.getItem(storageKey);
             if (lastViewed && Date.now() - parseInt(lastViewed, 10) < COOLDOWN) return;
             localStorage.setItem(storageKey, Date.now().toString());
+            
+            // 그대로 사용 (변환 없음)
             await axios.post('/api/videos/views', { path });
         } catch (err) {
             console.error('Failed to increment view count:', err);
@@ -642,16 +774,19 @@ function FolderBrowserContent() {
                                 </div>
                             )}
 
-                            {categoryData.map((row) => (
-                                <CategoryRow
-                                    key={row.category}
-                                    category={row.category}
-                                    path={row.path}
-                                    videos={row.videos}
-                                    onVideoClick={handleVideoClick}
-                                    onHeaderClick={handleFolderClick}
-                                />
-                            ))}
+                            {categoryData.length > 0 && (
+                                <div className="space-y-12">
+                                    {categoryData.map((row) => (
+                                        <CategoryRow
+                                            key={row.category}
+                                            category={row.category}
+                                            path={row.path}
+                                            folders={row.folders}
+                                            onFolderClick={handleFolderClick}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </>
                     )}
 
