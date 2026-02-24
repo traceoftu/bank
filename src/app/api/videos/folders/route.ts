@@ -70,13 +70,12 @@ export async function GET(request: NextRequest) {
                     const folderPath = `${pathParts[0]}/${pathParts[1]}`;
                     if (!folderStats.has(folderPath)) {
                         // 첫 영상으로 썸네일 설정
-                        const pathParts = file.path.split('/');
                         const filename = pathParts[pathParts.length - 1];
-                        const folderPath = pathParts.slice(0, -1).join('/');
+                        const videoFolderPath = pathParts.slice(0, -1).join('/');
                         
                         folderStats.set(folderPath, { 
                             totalViews: 0, 
-                            topVideoPath: `${folderPath}/${filename}` 
+                            topVideoPath: `${videoFolderPath}/${filename}` 
                         });
                     }
                     const stats = folderStats.get(folderPath)!;
