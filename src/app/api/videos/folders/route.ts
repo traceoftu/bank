@@ -63,6 +63,17 @@ export async function GET(request: NextRequest) {
                 }
             }
         }
+        
+        // 임시 테스트: 특정 영상에 높은 조회수 부여
+        if (path === '성인') {
+            console.log('🧪 테스트 모드: 성인 카테고리');
+            filteredFiles.forEach((file: any) => {
+                if (!file.isdir && file.path.includes('이정국')) {
+                    viewCounts.set(file.path, 9999); // 높은 조회수 부여
+                    console.log(`🧪 테스트 조회수 설정: ${file.path} = 9999`);
+                }
+            });
+        }
 
         for (const file of filteredFiles) {
             const relativePath = path ? file.path.replace(path + '/', '') : file.path;
@@ -89,9 +100,9 @@ export async function GET(request: NextRequest) {
                     
                     // 가장 조회수 많은 영상을 썸네일로 설정
                     if (!folderInfo.thumbnailPath || viewCounts.get(file.path)! > viewCounts.get(folderInfo.thumbnailPath)!) {
-                        // 썸네일 경로를 thumbnails 폴더 기준으로 설정
+                        // 썸네일 경로를 thumbnails 폴더 기준으로 설정 (원본 파일명 그대로 사용)
                         const pathParts = file.path.split('/');
-                        const filename = pathParts[pathParts.length - 1].replace(/\.[^.]+$/, '');
+                        const filename = pathParts[pathParts.length - 1]; // 확장자 포함
                         const folderPath = pathParts.slice(0, -1).join('/');
                         folderInfo.thumbnailPath = `${folderPath}/${filename}`;
                     }
