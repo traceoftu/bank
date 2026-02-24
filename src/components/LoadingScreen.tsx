@@ -12,6 +12,17 @@ export default function LoadingScreen() {
     const [fadeout, setFadeout] = useState(false);
 
     useEffect(() => {
+        // 첫 방문인지 확인 (sessionStorage 사용)
+        const hasVisited = sessionStorage.getItem('jbch-visited');
+        if (hasVisited) {
+            // 이미 방문했으면 로고 표시 안 함
+            setIsLoading(false);
+            return;
+        }
+
+        // 첫 방문 표시
+        sessionStorage.setItem('jbch-visited', 'true');
+
         // body::before 오버레이 제거 (CSS에서 JS 로드 전 콘텐츠 숨김용)
         document.body.classList.add('splash-done');
 
