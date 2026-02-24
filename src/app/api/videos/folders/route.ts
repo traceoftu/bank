@@ -35,44 +35,44 @@ export async function GET(request: NextRequest) {
         const folderMap = new Map<string, { name: string; path: string; totalViews: number; thumbnailPath: string }>();
         const videos: any[] = [];
 
-        // 조회수 데이터 가져오기 (D1 우선, KV 폴백)
+        // 조회수 데이터 가져오기 (D1 집계 쿼리로 한 번에 처리)
         const viewCounts = new Map<string, number>();
+        const folderStats = new Map<string, { totalViews: number; topVideoPath: string }>();
         
-        // D1에서 조회수 일괄 조회
         try {
             const db = (env as any).DB as D1Database;
             if (db) {
-                const result = await db.prepare('SELECT path, count FROM views').all();
+                // 현재 경로의 하위 폴더들만 집계
+                const pathPrefix = path ? `${path}/` : '';
+                const result = await db.prepare(`
+                    SELECT 
+                        SUBSTR(path, ${pathPrefix.length + 1}, 
+                               INSTR(SUBSTR(path, ${pathPrefix.length + 1}), '/') - 1) as folder_name,
+                        SUM(count) as total_views,
+                        (SELECT path FROM views v2 
+                         WHERE v2.path LIKE ? || '%' 
+                         AND SUBSTR(v2.path, ${pathPrefix.length + 1}, 
+                                   INSTR(SUBSTR(v2.path, ${pathPrefix.length + 1}), '/') - 1) = folder_name
+                         ORDER BY count DESC LIMIT 1) as top_video_path
+                    FROM views
+                    WHERE path LIKE ?
+                    GROUP BY folder_name
+                    ORDER BY total_views DESC
+                `).bind(pathPrefix, `${pathPrefix}%`).all();
+                
                 if (result.results) {
                     for (const row of result.results as any[]) {
-                        viewCounts.set(row.path, row.count);
+                        const folderPath = path ? `${path}/${row.folder_name}` : row.folder_name;
+                        folderStats.set(folderPath, {
+                            totalViews: row.total_views,
+                            topVideoPath: row.top_video_path
+                        });
+                        viewCounts.set(row.top_video_path, row.total_views);
                     }
                 }
             }
         } catch (e) {
-            console.error('D1 views query error:', e);
-        }
-        
-        // KV 폴백 (기존 방식)
-        for (const file of filteredFiles) {
-            if (!file.isdir) {
-                const viewKey = `views:${file.path}`;
-                const viewData = await kv.get(viewKey);
-                if (!viewCounts.has(file.path)) {
-                    viewCounts.set(file.path, viewData ? parseInt(viewData as string) : 0);
-                }
-            }
-        }
-        
-        // 임시 테스트: 특정 영상에 높은 조회수 부여
-        if (path === '성인') {
-            console.log('🧪 테스트 모드: 성인 카테고리');
-            filteredFiles.forEach((file: any) => {
-                if (!file.isdir && file.path.includes('이정국')) {
-                    viewCounts.set(file.path, 9999); // 높은 조회수 부여
-                    console.log(`🧪 테스트 조회수 설정: ${file.path} = 9999`);
-                }
-            });
+            console.error('D1 aggregation query error:', e);
         }
 
         for (const file of filteredFiles) {
@@ -85,26 +85,26 @@ export async function GET(request: NextRequest) {
                 const folderPath = path ? `${path}/${folderName}` : folderName;
                 
                 if (!folderMap.has(folderPath)) {
+                    // D1 집계 데이터 사용
+                    const stats = folderStats.get(folderPath);
                     folderMap.set(folderPath, {
                         name: folderName,
                         path: folderPath,
-                        totalViews: 0,
+                        totalViews: stats?.totalViews || 0,
                         thumbnailPath: ''
                     });
                 }
                 
-                // 해당 폴더의 모든 하위 영상 조회수 집계 (4단계 깊이까지)
-                if (!file.isdir && file.path.startsWith(folderPath + '/')) {
+                // D1에서 찾은 최상위 영상으로 썸네일 설정
+                const stats = folderStats.get(folderPath);
+                if (stats && stats.topVideoPath) {
                     const folderInfo = folderMap.get(folderPath)!;
-                    folderInfo.totalViews += viewCounts.get(file.path) || 0;
-                    
-                    // 가장 조회수 많은 영상을 썸네일로 설정
-                    if (!folderInfo.thumbnailPath || viewCounts.get(file.path)! > viewCounts.get(folderInfo.thumbnailPath)!) {
-                        // 썸네일 경로를 thumbnails 폴더 기준으로 설정 (원본 파일명 그대로 사용)
-                        const pathParts = file.path.split('/');
-                        const filename = pathParts[pathParts.length - 1]; // 확장자 포함
+                    if (!folderInfo.thumbnailPath) {
+                        // 썸네일 경로 계산
+                        const pathParts = stats.topVideoPath.split('/');
+                        const filename = pathParts[pathParts.length - 1];
                         const folderPath = pathParts.slice(0, -1).join('/');
-                        folderInfo.thumbnailPath = `${folderPath}/${filename}`;
+                        folderInfo.thumbnailPath = `${folderPath}/${filename}.jpg`;
                     }
                 }
             } else {
@@ -142,6 +142,10 @@ export async function GET(request: NextRequest) {
             data: {
                 files: [...folders, ...videos],
             },
+        }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            }
         });
     } catch (error: any) {
         console.error('API Error:', error);
