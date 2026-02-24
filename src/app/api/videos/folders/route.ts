@@ -104,17 +104,17 @@ export async function GET(request: NextRequest) {
                     });
                 }
                 
-                // D1에서 찾은 최상위 영상으로 썸네일 설정
-                const stats = folderStats.get(folderPath);
-                if (stats && stats.topVideoPath) {
-                    const folderInfo = folderMap.get(folderPath)!;
-                    if (!folderInfo.thumbnailPath) {
-                        // 썸네일 경로 계산
-                        const pathParts = stats.topVideoPath.split('/');
-                        const filename = pathParts[pathParts.length - 1];
-                        const folderPath = pathParts.slice(0, -1).join('/');
-                        
-                        folderInfo.thumbnailPath = `${folderPath}/${filename}`;
+                // 폴더의 첫 번째 영상으로 썸네일 설정
+                const folderInfo = folderMap.get(folderPath)!;
+                if (!folderInfo.thumbnailPath) {
+                    // 해당 폴더의 첫 번째 영상 파일 찾기
+                    const folderVideos = allFiles
+                        .filter(f => f.path.startsWith(folderPath + '/') && !f.path.includes('/hls/'))
+                        .filter(f => !f.name.includes('.m3u8') && !f.name.includes('.ts'));
+                    
+                    if (folderVideos.length > 0) {
+                        const firstVideo = folderVideos[0]; // 첫 번째 영상
+                        folderInfo.thumbnailPath = firstVideo.path;
                     }
                 }
             } else {
