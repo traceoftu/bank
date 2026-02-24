@@ -84,7 +84,7 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
             <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800 ring-1 ring-white/5">
                 {thumbnailPath ? (
                     <img
-                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.jpg`}
+                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath}.jpg`}
                         alt={name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         onLoad={() => {
@@ -94,7 +94,7 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
                             console.log('❌ 폴더 썸네일 로드 실패:', thumbnailPath);
                             // 대문자로 재시도
                             if (!e.currentTarget.src.includes('.JPG')) {
-                                e.currentTarget.src = `https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.JPG`;
+                                e.currentTarget.src = `https://videos.haebomsoft.com/thumbnails/${thumbnailPath}.JPG`;
                             } else {
                                 // 이미지 숨기고 기본 아이콘 표시 (DOM 조작 최소화)
                                 e.currentTarget.style.display = 'none';
