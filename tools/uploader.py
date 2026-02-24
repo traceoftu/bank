@@ -137,11 +137,24 @@ class UploaderApp:
         thumb_time_frame = ttk.Frame(option_frame)
         thumb_time_frame.pack(fill=tk.X, pady=(5, 0))
         
-        ttk.Label(thumb_time_frame, text="썸네일 추출 시간:").pack(side=tk.LEFT)
-        self.thumb_time_var = tk.StringVar(value="00:00:01")
-        thumb_time_entry = ttk.Entry(thumb_time_frame, textvariable=self.thumb_time_var, width=10)
-        thumb_time_entry.pack(side=tk.LEFT, padx=(5, 5))
-        ttk.Label(thumb_time_frame, text="(HH:MM:SS)").pack(side=tk.LEFT)
+        ttk.Label(thumb_time_frame, text="시간 설정:").pack(side=tk.LEFT)
+        
+        # 1. 영상용 (고정)
+        ttk.Label(thumb_time_frame, text=" [영상] ").pack(side=tk.LEFT)
+        self.thumb_time_video_var = tk.StringVar(value="00:00:01")
+        ttk.Entry(thumb_time_frame, textvariable=self.thumb_time_video_var, width=8).pack(side=tk.LEFT)
+        
+        # 2. 대표폴더용 (강사 등)
+        ttk.Label(thumb_time_frame, text=" [대표폴더] ").pack(side=tk.LEFT)
+        self.thumb_time_rep_var = tk.StringVar(value="00:05:00")
+        ttk.Entry(thumb_time_frame, textvariable=self.thumb_time_rep_var, width=8).pack(side=tk.LEFT)
+        
+        # 3. 영상폴더용 (강의 등)
+        ttk.Label(thumb_time_frame, text=" [영상폴더] ").pack(side=tk.LEFT)
+        self.thumb_time_vid_var = tk.StringVar(value="00:10:00")
+        ttk.Entry(thumb_time_frame, textvariable=self.thumb_time_vid_var, width=8).pack(side=tk.LEFT)
+        
+        ttk.Label(thumb_time_frame, text=" (HH:MM:SS)").pack(side=tk.LEFT)
         
         # 썸네일 추출 전용 버튼
         thumb_only_frame = ttk.Frame(option_frame)
@@ -556,7 +569,7 @@ class UploaderApp:
             return
         
         # 시간 형식 검증
-        time_str = self.thumb_time_var.get().strip()
+        time_str = self.thumb_time_video_var.get().strip()
         if not self.validate_time_format(time_str):
             messagebox.showerror("오류", "시간 형식이 올바르지 않습니다.\nHH:MM:SS 형식으로 입력해주세요.")
             return
@@ -620,6 +633,49 @@ class UploaderApp:
         
         self.log(f"업로드 시작: {total}개 파일 → {upload_path}")
         
+        # --- 0. 폴더 대표 썸네일 자동 생성 및 업로드 (배치당 한 번만) ---
+        if self.thumbnail_var.get() and total > 0:
+            first_video = self.selected_files[0]
+            if os.path.splitext(first_video)[1].lower() in VIDEO_EXTENSIONS:
+                self.log(f"  📁 폴더 대표 썸네일 생성 중...")
+                
+                path_parts = upload_path.split('/')
+                # 예: 성인(0) / 이정국(1) / 2602광주(2)
+                
+                # 강사 단계 (대표 폴더 - 보통 2번째 단계)
+                if len(path_parts) >= 2:
+                    rep_folder_name = path_parts[1]
+                    rep_folder_path = "/".join(path_parts[:2])
+                    rep_time = self.thumb_time_rep_var.get().strip()
+                    if not self.validate_time_format(rep_time): rep_time = "00:05:00"
+                    
+                    self.log(f"    📷 대표 폴더 ({rep_folder_name}) 썸네일 생성 중...")
+                    thumb_p = os.path.join(os.environ.get('TEMP', '/tmp'), f"rep_{rep_folder_name}.jpg")
+                    subprocess.run(["ffmpeg", "-y", "-i", first_video, "-ss", rep_time, "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_p], 
+                                   capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
+                    if os.path.exists(thumb_p):
+                        remote_p = f"{R2_BUCKET}/thumbnails/{rep_folder_path}/{rep_folder_name}.jpg"
+                        subprocess.run(["rclone", "copyto", thumb_p, remote_p], capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
+                        try: os.remove(thumb_p)
+                        except: pass
+                
+                # 강의 단계 (영상 폴더 - 보통 3번째 단계 이상)
+                if len(path_parts) >= 3:
+                    vid_folder_name = path_parts[-1]
+                    vid_time = self.thumb_time_vid_var.get().strip()
+                    if not self.validate_time_format(vid_time): vid_time = "00:10:00"
+                    
+                    self.log(f"    📷 영상 폴더 ({vid_folder_name}) 썸네일 생성 중...")
+                    thumb_p = os.path.join(os.environ.get('TEMP', '/tmp'), f"vid_{vid_folder_name}.jpg")
+                    subprocess.run(["ffmpeg", "-y", "-i", first_video, "-ss", vid_time, "-vframes", "1", "-vf", "scale=480:-1", "-q:v", "3", thumb_p], 
+                                   capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
+                    if os.path.exists(thumb_p):
+                        remote_p = f"{R2_BUCKET}/thumbnails/{upload_path}/{vid_folder_name}.jpg"
+                        subprocess.run(["rclone", "copyto", thumb_p, remote_p], capture_output=True, text=False, creationflags=SUBPROCESS_FLAGS)
+                        try: os.remove(thumb_p)
+                        except: pass
+        # -------------------------------------------------------------
+
         for i, file_path in enumerate(self.selected_files):
             filename = os.path.basename(file_path)
             self.status_label.configure(text=f"[{i+1}/{total}] {filename} 처리 중...")
@@ -755,8 +811,8 @@ class UploaderApp:
                     self.log(f"  📷 썸네일 생성 중...")
                     thumb_path = os.path.join(os.environ.get('TEMP', '/tmp'), f"{filename}.thumb.jpg")
                     
-                    # 사용자 설정 시간으로 썸네일 생성
-                    time_str = self.thumb_time_var.get().strip()
+                    # 사용자 설정 시간으로 썸네일 생성 (영상용 고정 1초)
+                    time_str = self.thumb_time_video_var.get().strip()
                     if not self.validate_time_format(time_str):
                         time_str = "00:00:01"  # 기본값
                     
