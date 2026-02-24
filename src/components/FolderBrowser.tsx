@@ -149,6 +149,7 @@ function FolderBrowserContent() {
     const [isMp4Mode, setIsMp4Mode] = useState(false);
     const [resumeData, setResumeData] = useState<{ path: string, time: number } | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const playerContainerRef = useRef<HTMLDivElement>(null);
     const hlsRef = useRef<Hls | null>(null);
     const lastTouchDistance = useRef<number | null>(null);
 
@@ -172,6 +173,77 @@ function FolderBrowserContent() {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [playingUrl]);
+
+    // 핀치 제스처 리스너 등록 (Android Chrome passive listener 이슈 해결)
+    useEffect(() => {
+        const container = playerContainerRef.current;
+        if (!container) return;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 2) {
+                const dist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                lastTouchDistance.current = dist;
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+                // 브라우저 기본 줌 방지 (passive: false 에서만 작동)
+                if (e.cancelable) e.preventDefault();
+
+                const dist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+
+                // 핀치 아웃 (확대) -> 전체화면 진입
+                if (dist > lastTouchDistance.current * 1.25) {
+                    const video = videoRef.current;
+                    const playerContainer = playerContainerRef.current;
+
+                    if (video && playerContainer) {
+                        if (!document.fullscreenElement) {
+                            // Android/Chrome: 컨테이너를 전체화면으로
+                            if (playerContainer.requestFullscreen) {
+                                playerContainer.requestFullscreen().catch(() => { });
+                            }
+                            // iOS/Safari: 비디오를 전체화면으로 (Native UI)
+                            else if ((video as any).webkitEnterFullscreen) {
+                                (video as any).webkitEnterFullscreen();
+                            }
+                        }
+                    }
+                    lastTouchDistance.current = dist;
+                }
+                // 핀치 인 (축소) -> 전체화면 해제
+                else if (dist < lastTouchDistance.current * 0.75) {
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => { });
+                    } else if (isIOS && (videoRef.current as any)?.webkitExitFullscreen) {
+                        (videoRef.current as any).webkitExitFullscreen();
+                    }
+                    lastTouchDistance.current = dist;
+                }
+            }
+        };
+
+        const handleTouchEnd = () => {
+            lastTouchDistance.current = null;
+        };
+
+        container.addEventListener('touchstart', handleTouchStart, { passive: true });
+        container.addEventListener('touchmove', handleTouchMove, { passive: false });
+        container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+        return () => {
+            container.removeEventListener('touchstart', handleTouchStart);
+            container.removeEventListener('touchmove', handleTouchMove);
+            container.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [playingUrl, isIOS]);
 
     // HLS 재생 처리
     useEffect(() => {
@@ -198,7 +270,6 @@ function FolderBrowserContent() {
         }
 
         if (isHlsUrl && Hls.isSupported()) {
-            // ... (HLS.js logic remains same)
             const hls = new Hls({
                 maxBufferLength: 30,
                 maxMaxBufferLength: 60,
@@ -212,7 +283,6 @@ function FolderBrowserContent() {
                     video.play().catch(() => { });
                 }
             });
-            // ... rest of Hls event handlers
         } else if (isHlsUrl && video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = playingUrl;
             if (!localStorage.getItem(`video-progress-${playingPath}`)) {
@@ -330,7 +400,6 @@ function FolderBrowserContent() {
     }, [playParam]);
 
     const fetchItems = async (path: string, query: string) => {
-        console.log('🔄 fetchItems 시작:', { path, query });
         setLoading(true);
         setError(null);
         try {
@@ -357,8 +426,6 @@ function FolderBrowserContent() {
                                     thumbnailPath: folder.thumbnailPath || '',
                                     totalViews: folder.totalViews || 0
                                 })) || [];
-
-                            console.log(`📁 ${category.category} 폴더 데이터:`, folders);
 
                             return {
                                 category: category.category,
@@ -391,17 +458,14 @@ function FolderBrowserContent() {
                         return a.name.localeCompare(b.name);
                     });
                     setItems(sortedFiles);
-                    console.log('✅ 데이터 설정 완료:', sortedFiles.length, '개');
                 } else {
                     setItems([]);
-                    console.log('⚠️ 데이터 없음');
                 }
             }
         } catch (err: any) {
             console.error('❌ fetchItems 에러:', err);
             setError(err.response?.data?.error || err.message || 'Failed to load folders');
         } finally {
-            console.log('🔄 setLoading(false) 호출');
             setLoading(false);
         }
     };
@@ -431,8 +495,6 @@ function FolderBrowserContent() {
                                 totalViews: folder.totalViews || 0
                             })) || [];
 
-                        console.log(`📁 ${category.category} 폴더 데이터:`, folders);
-
                         return {
                             category: category.category,
                             path: category.path,
@@ -448,7 +510,6 @@ function FolderBrowserContent() {
     };
 
     useEffect(() => {
-        console.log('🔄 useEffect 호출:', { currentPath, searchQuery });
         fetchItems(currentPath, searchQuery);
         if (!currentPath && !searchQuery) {
             fetchHomeData();
@@ -495,7 +556,6 @@ function FolderBrowserContent() {
         incrementViewIfNeeded(path);
 
         // 항상 HLS URL로 설정 (HEAD 요청 제거 → 비용 절감)
-        // HLS 로딩 실패 시 hls.js 에러 핸들러에서 MP4로 자동 폴백
         const dir = path.substring(0, path.lastIndexOf('/'));
         const filename = path.substring(path.lastIndexOf('/') + 1);
         const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
@@ -521,52 +581,10 @@ function FolderBrowserContent() {
                     }}
                 >
                     <div
-                        className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group"
+                        ref={playerContainerRef}
+                        className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group flex items-center justify-center aspect-video"
                         onClick={(e) => e.stopPropagation()}
-                        style={{ touchAction: 'none' }} // 브라우저 기본 줌 방지
-                        onTouchStart={(e) => {
-                            if (e.touches.length === 2) {
-                                const dist = Math.hypot(
-                                    e.touches[0].pageX - e.touches[1].pageX,
-                                    e.touches[0].pageY - e.touches[1].pageY
-                                );
-                                lastTouchDistance.current = dist;
-                            }
-                        }}
-                        onTouchMove={(e) => {
-                            if (e.touches.length === 2 && lastTouchDistance.current !== null) {
-                                e.preventDefault(); // 중요: 브라우저 기본 줌 방지
-                                const dist = Math.hypot(
-                                    e.touches[0].pageX - e.touches[1].pageX,
-                                    e.touches[0].pageY - e.touches[1].pageY
-                                );
-
-                                // 핀치 아웃 (확대) -> 전체화면 진입
-                                if (dist > lastTouchDistance.current * 1.25) { // 임계값 완화 (1.5 -> 1.25)
-                                    const video = videoRef.current;
-                                    if (video) {
-                                        if (video.requestFullscreen) {
-                                            if (!document.fullscreenElement) video.requestFullscreen().catch(() => { });
-                                        } else if ((video as any).webkitEnterFullscreen) {
-                                            (video as any).webkitEnterFullscreen();
-                                        }
-                                    }
-                                    lastTouchDistance.current = dist;
-                                }
-                                // 핀치 인 (축소) -> 전체화면 해제
-                                else if (dist < lastTouchDistance.current * 0.8) {
-                                    if (document.fullscreenElement) {
-                                        document.exitFullscreen().catch(() => { });
-                                    } else if (isIOS && (videoRef.current as any)?.webkitExitFullscreen) {
-                                        (videoRef.current as any).webkitExitFullscreen();
-                                    }
-                                    lastTouchDistance.current = dist;
-                                }
-                            }
-                        }}
-                        onTouchEnd={() => {
-                            lastTouchDistance.current = null;
-                        }}
+                        style={{ touchAction: 'none' }}
                     >
                         <div className="absolute top-4 right-4 z-50 flex items-center gap-2 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             {playingPath && (
@@ -669,43 +687,10 @@ function FolderBrowserContent() {
                             ref={videoRef}
                             controls
                             autoPlay
+                            playsInline
+                            webkit-playsinline="true"
                             onTimeUpdate={handleTimeUpdate}
-                            onTouchStart={(e) => {
-                                if (e.touches.length === 2) {
-                                    const dist = Math.hypot(
-                                        e.touches[0].pageX - e.touches[1].pageX,
-                                        e.touches[0].pageY - e.touches[1].pageY
-                                    );
-                                    lastTouchDistance.current = dist;
-                                }
-                            }}
-                            onTouchMove={(e) => {
-                                if (e.touches.length === 2 && lastTouchDistance.current !== null) {
-                                    const dist = Math.hypot(
-                                        e.touches[0].pageX - e.touches[1].pageX,
-                                        e.touches[0].pageY - e.touches[1].pageY
-                                    );
-
-                                    // 핀치 아웃 (확대) -> 전체화면
-                                    if (dist > lastTouchDistance.current * 1.5) {
-                                        if (videoRef.current && !document.fullscreenElement) {
-                                            videoRef.current.requestFullscreen().catch(() => { });
-                                        }
-                                        lastTouchDistance.current = dist;
-                                    }
-                                    // 핀치 인 (축소) -> 전체화면 해제
-                                    else if (dist < lastTouchDistance.current * 0.7) {
-                                        if (document.fullscreenElement) {
-                                            document.exitFullscreen().catch(() => { });
-                                        }
-                                        lastTouchDistance.current = dist;
-                                    }
-                                }
-                            }}
-                            onTouchEnd={() => {
-                                lastTouchDistance.current = null;
-                            }}
-                            className="w-full h-auto max-h-[80vh] aspect-video bg-black"
+                            className="w-full h-full max-h-[100vh] object-contain bg-black"
                         />
 
                         {/* 이어보기 안내창 - 더 콤팩트하게 수정 */}
