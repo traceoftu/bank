@@ -6,34 +6,23 @@ const LOGO_TEXT = 'JBCH';
 const SUB_TEXT = 'Word of Life Hub';
 
 export default function LoadingScreen() {
-    const [mounted, setMounted] = useState(false);
-    const [isFirstVisit, setIsFirstVisit] = useState(false);
+    const [show, setShow] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [showSub, setShowSub] = useState(false);
     const [fadeout, setFadeout] = useState(false);
 
-    // ✅ 클라이언트 마운트 확인
     useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    // ✅ 방문 체크
-    useEffect(() => {
-        if (!mounted) return;
-
         const hasVisited = sessionStorage.getItem('jbch-visited');
 
-        if (!hasVisited) {
-            sessionStorage.setItem('jbch-visited', 'true');
-            setIsFirstVisit(true);
+        if (hasVisited) {
+            // 두 번째 방문부터는 아예 렌더 안함
+            return;
         }
-    }, [mounted]);
 
-    // ✅ 애니메이션 실행
-    useEffect(() => {
-        if (!isFirstVisit) return;
+        sessionStorage.setItem('jbch-visited', 'true');
+        setShow(true);
 
-        const timers: NodeJS.Timeout[] = [];
+        const timers: any[] = [];
 
         LOGO_TEXT.split('').forEach((_, i) => {
             timers.push(
@@ -50,14 +39,13 @@ export default function LoadingScreen() {
         );
 
         timers.push(
-            setTimeout(() => setIsFirstVisit(false), 3200)
+            setTimeout(() => setShow(false), 3200)
         );
 
         return () => timers.forEach(clearTimeout);
-    }, [isFirstVisit]);
+    }, []);
 
-    // ✅ 첫 방문 아니면 렌더 안함
-    if (!mounted || !isFirstVisit) return null;
+    if (!show) return null;
 
     return (
         <div
