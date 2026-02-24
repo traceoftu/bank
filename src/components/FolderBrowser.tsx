@@ -84,7 +84,7 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
             <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800 ring-1 ring-white/5">
                 {thumbnailPath ? (
                     <img
-                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}`}
+                        src={`https://videos.haebomsoft.com/thumbnails/${thumbnailPath.split('/').map(encodeURIComponent).join('/')}.jpg`}
                         alt={name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         onLoad={() => {

@@ -35,54 +35,46 @@ export async function GET(request: NextRequest) {
         const folderMap = new Map<string, { name: string; path: string; totalViews: number; thumbnailPath: string }>();
         const videos: any[] = [];
 
-        // 조회수 데이터 가져오기 (D1 집계 쿼리로 한 번에 처리)
+        // 조회수 데이터 가져오기 (Home API와 같은 방식)
         const viewCounts = new Map<string, number>();
         const folderStats = new Map<string, { totalViews: number; topVideoPath: string }>();
         
         try {
             const db = (env as any).DB as D1Database;
             if (db) {
-                // 먼저 D1에 데이터가 있는지 확인
-                const countResult = await db.prepare('SELECT COUNT(*) as count FROM views').first();
-                console.log('📊 D1 views 테이블 레코드 수:', countResult?.count || 0);
-                
-                // 샘플 데이터 확인
-                const sampleResult = await db.prepare('SELECT path, count FROM views LIMIT 5').all();
-                console.log('📊 D1 샘플 데이터:', sampleResult.results);
-                
-                // 현재 경로의 하위 폴더들만 집계
-                const pathPrefix = path ? `${path}/` : '';
-                const result = await db.prepare(`
-                    SELECT 
-                        SUBSTR(path, ${pathPrefix.length + 1}, 
-                               INSTR(SUBSTR(path, ${pathPrefix.length + 1}), '/') - 1) as folder_name,
-                        SUM(count) as total_views,
-                        (SELECT path FROM views v2 
-                         WHERE v2.path LIKE ? || '%' 
-                         AND SUBSTR(v2.path, ${pathPrefix.length + 1}, 
-                                   INSTR(SUBSTR(v2.path, ${pathPrefix.length + 1}), '/') - 1) = folder_name
-                         ORDER BY count DESC LIMIT 1) as top_video_path
-                    FROM views
-                    WHERE path LIKE ?
-                    GROUP BY folder_name
-                    ORDER BY total_views DESC
-                `).bind(pathPrefix, `${pathPrefix}%`).all();
-                
-                console.log('📊 D1 집계 결과:', result.results);
+                // Home API와 같은 단순 조회 방식
+                const result = await db.prepare('SELECT path, count FROM views').all();
+                console.log('📊 D1 views 데이터 개수:', result.results?.length || 0);
                 
                 if (result.results) {
                     for (const row of result.results as any[]) {
-                        const folderPath = path ? `${path}/${row.folder_name}` : row.folder_name;
-                        folderStats.set(folderPath, {
-                            totalViews: row.total_views,
-                            topVideoPath: row.top_video_path
-                        });
-                        viewCounts.set(row.top_video_path, row.total_views);
+                        viewCounts.set(row.path, row.count);
                     }
+                    console.log('📊 D1 샘플 데이터:', result.results.slice(0, 3));
                 }
             }
         } catch (e) {
-            console.error('D1 aggregation query error:', e);
+            console.error('D1 views query error:', e);
+        }
+        
+        // D1 데이터로 직접 폴더별 집계
+        if (viewCounts.size > 0) {
+            console.log('📊 D1 데이터로 폴더별 집계 시작');
+            for (const [videoPath, views] of viewCounts.entries()) {
+                const pathParts = videoPath.split('/');
+                if (pathParts.length >= 3) {
+                    const folderPath = `${pathParts[0]}/${pathParts[1]}`;
+                    if (!folderStats.has(folderPath)) {
+                        folderStats.set(folderPath, { totalViews: 0, topVideoPath: '' });
+                    }
+                    const stats = folderStats.get(folderPath)!;
+                    stats.totalViews += views;
+                    if (!stats.topVideoPath || views > (viewCounts.get(stats.topVideoPath) || 0)) {
+                        stats.topVideoPath = videoPath;
+                    }
+                }
+            }
+            console.log('📊 D1 집계 완료, 폴더 수:', folderStats.size);
         }
         
         // D1에 데이터가 없으면 KV 폴백
@@ -141,7 +133,7 @@ export async function GET(request: NextRequest) {
                         const pathParts = stats.topVideoPath.split('/');
                         const filename = pathParts[pathParts.length - 1];
                         const folderPath = pathParts.slice(0, -1).join('/');
-                        folderInfo.thumbnailPath = `${folderPath}/${filename}.jpg`;
+                        folderInfo.thumbnailPath = `${folderPath}/${filename}`;
                     }
                 }
             } else {
