@@ -271,6 +271,7 @@ function FolderBrowserContent() {
     }, [playParam]);
 
     const fetchItems = async (path: string, query: string) => {
+        console.log('🔄 fetchItems 시작:', { path, query });
         setLoading(true);
         setError(null);
         try {
@@ -282,6 +283,7 @@ function FolderBrowserContent() {
             }
 
             const response = await axios.get(`/api/videos/folders`, { params });
+            console.log('📊 API 응답:', response.data);
 
             if (response.data.data?.files) {
                 // 특정 순서로 폴더 정렬
@@ -297,12 +299,16 @@ function FolderBrowserContent() {
                     return a.name.localeCompare(b.name);
                 });
                 setItems(sortedFiles);
+                console.log('✅ 데이터 설정 완료:', sortedFiles.length, '개');
             } else {
                 setItems([]);
+                console.log('⚠️ 데이터 없음');
             }
         } catch (err: any) {
+            console.error('❌ fetchItems 에러:', err);
             setError(err.response?.data?.error || err.message || 'Failed to load folders');
         } finally {
+            console.log('🔄 setLoading(false) 호출');
             setLoading(false);
         }
     };
@@ -349,6 +355,7 @@ function FolderBrowserContent() {
     };
 
     useEffect(() => {
+        console.log('🔄 useEffect 호출:', { currentPath, searchQuery });
         fetchItems(currentPath, searchQuery);
         if (!currentPath && !searchQuery) {
             fetchHomeData();
@@ -380,6 +387,8 @@ function FolderBrowserContent() {
             const lastViewed = localStorage.getItem(storageKey);
             if (lastViewed && Date.now() - parseInt(lastViewed, 10) < COOLDOWN) return;
             localStorage.setItem(storageKey, Date.now().toString());
+            
+            // 그대로 사용 (변환 없음)
             await axios.post('/api/videos/views', { path });
         } catch (err) {
             console.error('Failed to increment view count:', err);
