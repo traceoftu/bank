@@ -12,6 +12,9 @@ export default function LoadingScreen() {
     const [fadeout, setFadeout] = useState(false);
 
     useEffect(() => {
+        // body::before 오버레이 제거
+        document.body.classList.add('splash-done');
+        
         const hasVisited = sessionStorage.getItem('jbch-visited');
 
         if (!hasVisited) {
