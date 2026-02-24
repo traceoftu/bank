@@ -276,34 +276,68 @@ function FolderBrowserContent() {
         setLoading(true);
         setError(null);
         try {
-            const params: any = {};
-            if (query) {
-                params.q = query;
-            } else if (path) {
-                params.path = path;
-            }
-
-            const response = await axios.get(`/api/videos/folders`, { params });
-            console.log('📊 API 응답:', response.data);
-
-            if (response.data.data?.files) {
-                // 특정 순서로 폴더 정렬
-                const priority = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
-                const sortedFiles = [...response.data.data.files].sort((a, b) => {
-                    if (a.isdir && b.isdir) {
-                        const indexA = priority.indexOf(a.name);
-                        const indexB = priority.indexOf(b.name);
-                        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                        if (indexA !== -1) return -1;
-                        if (indexB !== -1) return 1;
-                    }
-                    return a.name.localeCompare(b.name);
-                });
-                setItems(sortedFiles);
-                console.log('✅ 데이터 설정 완료:', sortedFiles.length, '개');
+            // 홈 화면일 때만 홈 API 호출
+            if (!path && !query) {
+                const res = await axios.get('/api/videos/home');
+                if (res.data.data) {
+                    setPopularVideos(res.data.data.top10 || []);
+                    // 카테고리 데이터를 폴더 기반으로 변환
+                    const categories = res.data.data.categories || [];
+                    const categoryFolders = await Promise.all(
+                        categories.map(async (category: any) => {
+                            // 각 카테고리의 하위 폴더 가져오기
+                            const folderRes = await axios.get('/api/videos/folders', {
+                                params: { path: category.path }
+                            });
+                            
+                            // 폴더만 필터링 (영상 제외) - API에서 이미 썸네일 경로 계산
+                            const folders = folderRes.data.data?.files
+                                .filter((item: any) => item.isdir)
+                                .map((folder: any) => ({
+                                    name: folder.name,
+                                    path: folder.path,
+                                    thumbnailPath: folder.thumbnailPath || '',
+                                    totalViews: folder.totalViews || 0
+                                })) || [];
+                            
+                            console.log(`📁 ${category.category} 폴더 데이터:`, folders);
+                            
+                            return {
+                                category: category.category,
+                                path: category.path,
+                                folders: folders
+                            };
+                        })
+                    );
+                    setCategoryData(categoryFolders);
+                }
             } else {
-                setItems([]);
-                console.log('⚠️ 데이터 없음');
+                const params: any = {};
+                if (query) {
+                    params.q = query;
+                } else if (path) {
+                    params.path = path;
+                }
+                const res = await axios.get('/api/videos/files', { params });
+                if (res.data.data) {
+                    // 특정 순서로 폴더 정렬
+                    const priority = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
+                    const sortedFiles = [...res.data.data.files].sort((a, b) => {
+                        if (a.isdir && b.isdir) {
+                            const indexA = priority.indexOf(a.name);
+                            const indexB = priority.indexOf(b.name);
+                            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                            if (indexA !== -1) return -1;
+                            if (indexB !== -1) return 1;
+                        }
+                        return a.name.localeCompare(b.name);
+                    });
+                    setItems(sortedFiles);
+                    console.log('✅ 데이터 설정 완료:', sortedFiles.length, '개');
+                } else {
+                    setItems([]);
+                    console.log('⚠️ 데이터 없음');
+                }
             }
         } catch (err: any) {
             console.error('❌ fetchItems 에러:', err);
