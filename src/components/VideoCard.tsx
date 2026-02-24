@@ -16,6 +16,7 @@ const R2_PUBLIC_URL = 'https://videos.haebomsoft.com';
 export default function VideoCard({ name, path, size, viewCount, onPlay, vertical = false }: VideoCardProps) {
     const [isVisible, setIsVisible] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [progress, setProgress] = useState<number | null>(null);
     const cardRef = useRef<HTMLDivElement>(null);
 
     const encodedPath = path.split('/').map(encodeURIComponent).join('/');
@@ -37,8 +38,18 @@ export default function VideoCard({ name, path, size, viewCount, onPlay, vertica
             observer.observe(cardRef.current);
         }
 
+        // 시청 진행률 로드
+        const savedPercentage = localStorage.getItem(`video-percentage-${path}`);
+        const isCompleted = localStorage.getItem(`video-completed-${path}`) === 'true';
+
+        if (isCompleted) {
+            setProgress(100);
+        } else if (savedPercentage) {
+            setProgress(parseFloat(savedPercentage));
+        }
+
         return () => observer.disconnect();
-    }, []);
+    }, [path]);
 
     return (
         <div
@@ -66,6 +77,16 @@ export default function VideoCard({ name, path, size, viewCount, onPlay, vertica
                     onLoad={() => setIsLoaded(true)}
                     className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                 />
+            )}
+
+            {/* 시청 진행률 바 */}
+            {progress !== null && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-800 z-20">
+                    <div
+                        className="h-full bg-red-600 transition-all duration-500"
+                        style={{ width: `${progress}%` }}
+                    />
+                </div>
             )}
 
             {/* 재생 버튼 오버레이 */}

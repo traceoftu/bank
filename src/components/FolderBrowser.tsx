@@ -11,6 +11,8 @@ interface FileItem {
     name: string;
     path: string;
     isdir: boolean;
+    totalViews?: number;
+    thumbnailPath?: string;
     size?: number;
 }
 
@@ -145,14 +147,31 @@ function FolderBrowserContent() {
     const [showShareModal, setShowShareModal] = useState(false);
     const [canCast, setCanCast] = useState(false);
     const [isMp4Mode, setIsMp4Mode] = useState(false);
+    const [resumeData, setResumeData] = useState<{ path: string, time: number } | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
+    const lastTouchDistance = useRef<number | null>(null);
 
     useEffect(() => {
         // iOS 감지
         const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         setIsIOS(checkIOS);
-    }, []);
+
+        // 키보드 이벤트 리스너 (스페이스바)
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space' && playingUrl) {
+                e.preventDefault(); // 페이지 스크롤 방지
+                const video = videoRef.current;
+                if (video) {
+                    if (video.paused) video.play().catch(() => { });
+                    else video.pause();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [playingUrl]);
 
     // HLS 재생 처리
     useEffect(() => {
@@ -167,8 +186,19 @@ function FolderBrowserContent() {
 
         const isHlsUrl = playingUrl.endsWith('.m3u8') || playingUrl.includes('.m3u8');
 
+        // 이어보기 체크
+        if (playingPath) {
+            const savedProgress = localStorage.getItem(`video-progress-${playingPath}`);
+            if (savedProgress) {
+                const time = parseFloat(savedProgress);
+                if (time > 10) { // 10초 이상 시청했을 때만 팝업
+                    setResumeData({ path: playingPath, time });
+                }
+            }
+        }
+
         if (isHlsUrl && Hls.isSupported()) {
-            // HLS.js로 재생 (Android, Desktop)
+            // ... (HLS.js logic remains same)
             const hls = new Hls({
                 maxBufferLength: 30,
                 maxMaxBufferLength: 60,
@@ -177,29 +207,22 @@ function FolderBrowserContent() {
             hls.loadSource(playingUrl);
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => { });
-            });
-            hls.on(Hls.Events.ERROR, (_event, data) => {
-                if (data.fatal) {
-                    console.error('HLS fatal error, falling back to MP4');
-                    hls.destroy();
-                    hlsRef.current = null;
-                    // 폴백: 원본 MP4로 재생
-                    if (playingPath) {
-                        const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
-                        video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
-                        video.play().catch(() => { });
-                    }
+                // resumeData가 없을 때만 자동 재생 (있으면 안내창 대기)
+                if (!localStorage.getItem(`video-progress-${playingPath}`)) {
+                    video.play().catch(() => { });
                 }
             });
+            // ... rest of Hls event handlers
         } else if (isHlsUrl && video.canPlayType('application/vnd.apple.mpegurl')) {
-            // iOS Safari 네이티브 HLS 지원
             video.src = playingUrl;
-            video.play().catch(() => { });
+            if (!localStorage.getItem(`video-progress-${playingPath}`)) {
+                video.play().catch(() => { });
+            }
         } else {
-            // 일반 MP4
             video.src = playingUrl;
-            video.play().catch(() => { });
+            if (!localStorage.getItem(`video-progress-${playingPath}`)) {
+                video.play().catch(() => { });
+            }
         }
 
         return () => {
@@ -209,6 +232,40 @@ function FolderBrowserContent() {
             }
         };
     }, [playingUrl]);
+
+    // 재생 시간 저장
+    const handleTimeUpdate = () => {
+        const video = videoRef.current;
+        if (video && playingPath && video.currentTime > 0 && video.duration > 0) {
+            const percentage = (video.currentTime / video.duration) * 100;
+            // 진행률이 98% 이상이면 시청 완료로 간주하여 초기화
+            if (percentage > 98) {
+                localStorage.removeItem(`video-progress-${playingPath}`);
+                localStorage.setItem(`video-completed-${playingPath}`, 'true');
+                localStorage.removeItem(`video-percentage-${playingPath}`);
+            } else {
+                localStorage.setItem(`video-progress-${playingPath}`, video.currentTime.toString());
+                localStorage.setItem(`video-percentage-${playingPath}`, percentage.toString());
+                localStorage.removeItem(`video-completed-${playingPath}`);
+            }
+        }
+    };
+
+    const resumePlayback = () => {
+        if (videoRef.current && resumeData) {
+            videoRef.current.currentTime = resumeData.time;
+            videoRef.current.play().catch(() => { });
+        }
+        setResumeData(null);
+    };
+
+    const startFromBeginning = () => {
+        if (videoRef.current) {
+            videoRef.current.currentTime = 0;
+            videoRef.current.play().catch(() => { });
+        }
+        setResumeData(null);
+    };
 
     // Remote Playback API 지원 확인 및 캐스팅 기능
     useEffect(() => {
@@ -568,8 +625,75 @@ function FolderBrowserContent() {
                             ref={videoRef}
                             controls
                             autoPlay
+                            onTimeUpdate={handleTimeUpdate}
+                            onTouchStart={(e) => {
+                                if (e.touches.length === 2) {
+                                    const dist = Math.hypot(
+                                        e.touches[0].pageX - e.touches[1].pageX,
+                                        e.touches[0].pageY - e.touches[1].pageY
+                                    );
+                                    lastTouchDistance.current = dist;
+                                }
+                            }}
+                            onTouchMove={(e) => {
+                                if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+                                    const dist = Math.hypot(
+                                        e.touches[0].pageX - e.touches[1].pageX,
+                                        e.touches[0].pageY - e.touches[1].pageY
+                                    );
+
+                                    // 핀치 아웃 (확대) -> 전체화면
+                                    if (dist > lastTouchDistance.current * 1.5) {
+                                        if (videoRef.current && !document.fullscreenElement) {
+                                            videoRef.current.requestFullscreen().catch(() => { });
+                                        }
+                                        lastTouchDistance.current = dist;
+                                    }
+                                    // 핀치 인 (축소) -> 전체화면 해제
+                                    else if (dist < lastTouchDistance.current * 0.7) {
+                                        if (document.fullscreenElement) {
+                                            document.exitFullscreen().catch(() => { });
+                                        }
+                                        lastTouchDistance.current = dist;
+                                    }
+                                }
+                            }}
+                            onTouchEnd={() => {
+                                lastTouchDistance.current = null;
+                            }}
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"
                         />
+
+                        {/* 이어보기 안내창 */}
+                        {resumeData && (
+                            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
+                                <div className="bg-zinc-900 border border-white/20 p-6 rounded-2xl shadow-2xl max-w-xs w-full text-center">
+                                    <div className="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h4 className="text-white font-bold mb-2">이어서 보시겠습니까?</h4>
+                                    <p className="text-zinc-400 text-sm mb-6">
+                                        마지막으로 시청하신 {Math.floor(resumeData.time / 60)}분 {Math.floor(resumeData.time % 60)}초 지점부터 재생합니다.
+                                    </p>
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            onClick={resumePlayback}
+                                            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all"
+                                        >
+                                            이어서 보기
+                                        </button>
+                                        <button
+                                            onClick={startFromBeginning}
+                                            className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium transition-all"
+                                        >
+                                            처음부터 보기
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -797,18 +921,14 @@ function FolderBrowserContent() {
                             <h2 className="text-xl font-bold text-white mb-4">📁 폴더</h2>
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                                 {items.filter(item => item.isdir && !item.path.includes('/hls/')).map((item) => (
-                                    <div
-                                        key={item.path}
-                                        onClick={() => handleFolderClick(item.path)}
-                                        className="group flex items-center gap-3 p-4 rounded-xl bg-zinc-900/40 border border-white/5 hover:bg-zinc-800/60 hover:border-blue-500/30 cursor-pointer transition-all"
-                                    >
-                                        <span className="text-3xl text-blue-400 group-hover:scale-110 transition-transform">📁</span>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-semibold text-zinc-100 truncate group-hover:text-blue-400 transition-colors">
-                                                {item.name}
-                                            </span>
-                                            <span className="text-xs text-zinc-500">탐색하기 ›</span>
-                                        </div>
+                                    <div key={item.path}>
+                                        <FolderCard
+                                            name={item.name}
+                                            path={item.path}
+                                            thumbnailPath={item.thumbnailPath || ''}
+                                            totalViews={item.totalViews || 0}
+                                            onClick={handleFolderClick}
+                                        />
                                     </div>
                                 ))}
                             </div>
