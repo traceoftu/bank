@@ -42,6 +42,11 @@ export async function GET(request: NextRequest) {
         try {
             const db = (env as any).DB as D1Database;
             if (db) {
+                // D1 경로를 R2 실제 폴더명으로 일괄 수정
+                await db.prepare("UPDATE views SET path = REPLACE(path, '202510광주교회', '2510광주교회') WHERE path LIKE '%202510광주교회%'").run();
+                await db.prepare("UPDATE views SET path = REPLACE(path, '202512안산권', '2512안산권') WHERE path LIKE '%202512안산권%'").run();
+                await db.prepare("UPDATE views SET path = REPLACE(path, '202602서천교회', '2602서천교회') WHERE path LIKE '%202602서천교회%'").run();
+                
                 // Home API와 같은 단순 조회 방식
                 const result = await db.prepare('SELECT path, count FROM views').all();
                 console.log('📊 D1 views 데이터 개수:', result.results?.length || 0);
@@ -133,6 +138,7 @@ export async function GET(request: NextRequest) {
                         const pathParts = stats.topVideoPath.split('/');
                         const filename = pathParts[pathParts.length - 1];
                         const folderPath = pathParts.slice(0, -1).join('/');
+                        
                         folderInfo.thumbnailPath = `${folderPath}/${filename}`;
                     }
                 }
