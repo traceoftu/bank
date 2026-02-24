@@ -64,21 +64,24 @@ export async function GET(request: NextRequest) {
                 const views = viewCounts.get(file.path) || 0;
                 viewCounts.set(file.path, views);
 
-                // 폴더별 집계
+                // 모든 상위 폴더별로 조회수 합산 (재귀적 집계)
                 const pathParts = file.path.split('/');
-                if (pathParts.length >= 3) {
-                    const folderPath = `${pathParts[0]}/${pathParts[1]}`;
-                    if (!folderStats.has(folderPath)) {
-                        // 첫 영상으로 썸네일 설정
-                        const filename = pathParts[pathParts.length - 1];
-                        const videoFolderPath = pathParts.slice(0, -1).join('/');
+                let currentAccumulatedPath = '';
 
-                        folderStats.set(folderPath, {
+                // 마지막 부분(파일명)을 제외한 모든 상위 경로에 대해 집계
+                for (let i = 0; i < pathParts.length - 1; i++) {
+                    currentAccumulatedPath = currentAccumulatedPath
+                        ? `${currentAccumulatedPath}/${pathParts[i]}`
+                        : pathParts[i];
+
+                    if (!folderStats.has(currentAccumulatedPath)) {
+                        folderStats.set(currentAccumulatedPath, {
                             totalViews: 0,
-                            topVideoPath: `${videoFolderPath}/${filename}`
+                            topVideoPath: file.path // 첫 번째 발견된 영상 (썸네일 결정용)
                         });
                     }
-                    const stats = folderStats.get(folderPath)!;
+
+                    const stats = folderStats.get(currentAccumulatedPath)!;
                     stats.totalViews += views;
                 }
             }

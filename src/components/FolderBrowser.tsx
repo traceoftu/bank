@@ -664,29 +664,29 @@ function FolderBrowserContent() {
                             className="w-full h-auto max-h-[80vh] aspect-video bg-black"
                         />
 
-                        {/* 이어보기 안내창 */}
+                        {/* 이어보기 안내창 - 더 콤팩트하게 수정 */}
                         {resumeData && (
-                            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
-                                <div className="bg-zinc-900 border border-white/20 p-6 rounded-2xl shadow-2xl max-w-xs w-full text-center">
-                                    <div className="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in zoom-in duration-300">
+                                <div className="bg-zinc-900/90 border border-white/20 p-4 rounded-xl shadow-2xl max-w-[280px] w-[90%] text-center">
+                                    <div className="w-10 h-10 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <h4 className="text-white font-bold mb-2">이어서 보시겠습니까?</h4>
-                                    <p className="text-zinc-400 text-sm mb-6">
-                                        마지막으로 시청하신 {Math.floor(resumeData.time / 60)}분 {Math.floor(resumeData.time % 60)}초 지점부터 재생합니다.
+                                    <h4 className="text-white text-base font-bold mb-1">이어서 보시겠습니까?</h4>
+                                    <p className="text-zinc-400 text-xs mb-4">
+                                        마지막 시청 지점: {Math.floor(resumeData.time / 60)}분 {Math.floor(resumeData.time % 60)}초
                                     </p>
                                     <div className="flex flex-col gap-2">
                                         <button
                                             onClick={resumePlayback}
-                                            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all"
+                                            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-blue-600/20"
                                         >
                                             이어서 보기
                                         </button>
                                         <button
                                             onClick={startFromBeginning}
-                                            className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium transition-all"
+                                            className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-all"
                                         >
                                             처음부터 보기
                                         </button>
