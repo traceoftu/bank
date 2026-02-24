@@ -137,20 +137,26 @@ class UploaderApp:
         compress_frame = ttk.Frame(option_frame)
         compress_frame.pack(fill=tk.X, pady=(5, 0))
         
-        self.compress_var = tk.BooleanVar(value=False)
+        self.compress_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(compress_frame, text="H.265 자동 압축 (NVENC GPU)", variable=self.compress_var).pack(side=tk.LEFT)
         
         ttk.Label(compress_frame, text="화질:").pack(side=tk.LEFT, padx=(20, 5))
-        self.quality_var = tk.StringVar(value="균형 (CRF 23)")
+        self.quality_var = tk.StringVar(value="최대 압축 (CRF 32)")
         quality_combo = ttk.Combobox(compress_frame, textvariable=self.quality_var, width=20, state="readonly",
                                       values=["고화질 (CRF 18)", "균형 (CRF 23)", "용량 우선 (CRF 28)", "최대 압축 (CRF 32)"])
         quality_combo.pack(side=tk.LEFT, padx=(0, 10))
         
         ttk.Label(compress_frame, text="해상도:").pack(side=tk.LEFT, padx=(5, 5))
-        self.resolution_var = tk.StringVar(value="원본")
+        self.resolution_var = tk.StringVar(value="900p (1600x900)")
         resolution_combo = ttk.Combobox(compress_frame, textvariable=self.resolution_var, width=15, state="readonly",
                                         values=["원본", "1080p (1920x1080)", "900p (1600x900)", "720p (1280x720)"])
-        resolution_combo.pack(side=tk.LEFT)
+        resolution_combo.pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Label(compress_frame, text="속도:").pack(side=tk.LEFT, padx=(5, 5))
+        self.speed_var = tk.StringVar(value="SLOW")
+        speed_combo = ttk.Combobox(compress_frame, textvariable=self.speed_var, width=12, state="readonly",
+                                  values=["FAST", "SLOW"])
+        speed_combo.pack(side=tk.LEFT)
         
         # === 진행 상황 ===
         progress_frame = ttk.LabelFrame(main_frame, text="4. 진행 상황", padding="10")
@@ -335,6 +341,14 @@ class UploaderApp:
         else:
             return None  # 원본
     
+    def get_preset_value(self):
+        """속도 설정에서 프리셋 값 추출"""
+        speed = self.speed_var.get()
+        if speed == "FAST":
+            return "p1"  # FAST 프리셋
+        else:
+            return "p4"  # SLOW 프리셋 (기본값)
+    
     def get_video_codec(self, file_path):
         """ffprobe로 영상 코덱 확인"""
         try:
@@ -474,26 +488,34 @@ class UploaderApp:
         """NVENC H.265로 영상 압축"""
         crf = self.get_crf_value()
         resolution = self.get_resolution_value()
+        preset = self.get_preset_value()
         
-        # 비트레이트 제한 설정 (CRF별)
-        # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps / CRF 32: 최대 압축 - 1Mbps
-        bitrate_map = {"18": "8M", "23": "4M", "28": "2M", "32": "1M"}
-        maxrate = bitrate_map.get(crf, "4M")
-        bufsize = maxrate  # bufsize = maxrate와 동일
+        # 비트레이트 제한 설정 (CRF별) - 음성 싱크 개선
+        # CRF 18: 고화질 - 8Mbps / CRF 23: 균형 - 4Mbps / CRF 28: 용량우선 - 2Mbps / CRF 32: 최대 압축 - 2Mbps (상향 조정)
+        if crf == "32":
+            maxrate = "2M"  # 1M → 2M으로 상향 (음성 싱크 개선)
+            bufsize = "2M"
+            audio_bitrate = "96k"  # 128k → 96k로 하향 (균형 맞춤)
+        else:
+            bitrate_map = {"18": "8M", "23": "4M", "28": "2M"}
+            maxrate = bitrate_map.get(crf, "4M")
+            bufsize = maxrate
+            audio_bitrate = "128k"
         
-        # NVENC H.265 압축 명령어 (VBR 모드 + 비트레이트 제한)
+        # NVENC H.265 압축 명령어 (음성 싱크 개선)
         cmd = [
             "ffmpeg", "-y",
             "-hwaccel", "cuda",
             "-i", input_path,
             "-c:v", "hevc_nvenc",
-            "-preset", "p4",
+            "-preset", preset,
             "-rc", "vbr",
             "-cq", crf,
             "-maxrate", maxrate,
             "-bufsize", bufsize,
+            "-async", "1",  # 음성 동기화 추가
             "-c:a", "aac",
-            "-b:a", "128k"
+            "-b:a", audio_bitrate
         ]
         
         # 해상도 변경 옵션 추가
