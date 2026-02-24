@@ -523,6 +523,50 @@ function FolderBrowserContent() {
                     <div
                         className="relative w-full max-w-5xl overflow-hidden bg-black rounded-2xl shadow-2xl ring-1 ring-white/10 group"
                         onClick={(e) => e.stopPropagation()}
+                        style={{ touchAction: 'none' }} // 브라우저 기본 줌 방지
+                        onTouchStart={(e) => {
+                            if (e.touches.length === 2) {
+                                const dist = Math.hypot(
+                                    e.touches[0].pageX - e.touches[1].pageX,
+                                    e.touches[0].pageY - e.touches[1].pageY
+                                );
+                                lastTouchDistance.current = dist;
+                            }
+                        }}
+                        onTouchMove={(e) => {
+                            if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+                                e.preventDefault(); // 중요: 브라우저 기본 줌 방지
+                                const dist = Math.hypot(
+                                    e.touches[0].pageX - e.touches[1].pageX,
+                                    e.touches[0].pageY - e.touches[1].pageY
+                                );
+
+                                // 핀치 아웃 (확대) -> 전체화면 진입
+                                if (dist > lastTouchDistance.current * 1.25) { // 임계값 완화 (1.5 -> 1.25)
+                                    const video = videoRef.current;
+                                    if (video) {
+                                        if (video.requestFullscreen) {
+                                            if (!document.fullscreenElement) video.requestFullscreen().catch(() => { });
+                                        } else if ((video as any).webkitEnterFullscreen) {
+                                            (video as any).webkitEnterFullscreen();
+                                        }
+                                    }
+                                    lastTouchDistance.current = dist;
+                                }
+                                // 핀치 인 (축소) -> 전체화면 해제
+                                else if (dist < lastTouchDistance.current * 0.8) {
+                                    if (document.fullscreenElement) {
+                                        document.exitFullscreen().catch(() => { });
+                                    } else if (isIOS && (videoRef.current as any)?.webkitExitFullscreen) {
+                                        (videoRef.current as any).webkitExitFullscreen();
+                                    }
+                                    lastTouchDistance.current = dist;
+                                }
+                            }
+                        }}
+                        onTouchEnd={() => {
+                            lastTouchDistance.current = null;
+                        }}
                     >
                         <div className="absolute top-4 right-4 z-50 flex items-center gap-2 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             {playingPath && (
