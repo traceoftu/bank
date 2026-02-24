@@ -77,7 +77,7 @@ function FolderCard({ name, path, thumbnailPath, totalViews, onClick }: {
     };
 
     return (
-        <div 
+        <div
             className="group cursor-pointer transition-all duration-300 hover:scale-105"
             onClick={handleClick}
         >
@@ -176,7 +176,7 @@ function FolderBrowserContent() {
             hls.loadSource(playingUrl);
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => {});
+                video.play().catch(() => { });
             });
             hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (data.fatal) {
@@ -187,18 +187,18 @@ function FolderBrowserContent() {
                     if (playingPath) {
                         const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
                         video.src = `https://videos.haebomsoft.com/${mp4Encoded}`;
-                        video.play().catch(() => {});
+                        video.play().catch(() => { });
                     }
                 }
             });
         } else if (isHlsUrl && video.canPlayType('application/vnd.apple.mpegurl')) {
             // iOS Safari 네이티브 HLS 지원
             video.src = playingUrl;
-            video.play().catch(() => {});
+            video.play().catch(() => { });
         } else {
             // 일반 MP4
             video.src = playingUrl;
-            video.play().catch(() => {});
+            video.play().catch(() => { });
         }
 
         return () => {
@@ -249,7 +249,7 @@ function FolderBrowserContent() {
                 console.error('Cast error:', err);
             }
         }
-        video.play().catch(() => {});
+        video.play().catch(() => { });
     }, [playingPath]);
 
     // 공유 링크로 접속 시 자동 재생
@@ -289,7 +289,7 @@ function FolderBrowserContent() {
                             const folderRes = await axios.get('/api/videos/folders', {
                                 params: { path: category.path }
                             });
-                            
+
                             // 폴더만 필터링 (영상 제외) - API에서 이미 썸네일 경로 계산
                             const folders = folderRes.data.data?.files
                                 .filter((item: any) => item.isdir)
@@ -299,9 +299,9 @@ function FolderBrowserContent() {
                                     thumbnailPath: folder.thumbnailPath || '',
                                     totalViews: folder.totalViews || 0
                                 })) || [];
-                            
+
                             console.log(`📁 ${category.category} 폴더 데이터:`, folders);
-                            
+
                             return {
                                 category: category.category,
                                 path: category.path,
@@ -318,7 +318,7 @@ function FolderBrowserContent() {
                 } else if (path) {
                     params.path = path;
                 }
-                const res = await axios.get('/api/videos/files', { params });
+                const res = await axios.get('/api/videos/folders', { params });
                 if (res.data.data) {
                     // 특정 순서로 폴더 정렬
                     const priority = ['성인', '은장회', '청년회', '중고등부', '초등부', '생활&특별&기타'];
@@ -362,7 +362,7 @@ function FolderBrowserContent() {
                         const folderRes = await axios.get('/api/videos/folders', {
                             params: { path: category.path }
                         });
-                        
+
                         // 폴더만 필터링 (영상 제외) - API에서 이미 썸네일 경로 계산
                         const folders = folderRes.data.data?.files
                             .filter((item: any) => item.isdir)
@@ -372,9 +372,9 @@ function FolderBrowserContent() {
                                 thumbnailPath: folder.thumbnailPath || '',
                                 totalViews: folder.totalViews || 0
                             })) || [];
-                        
+
                         console.log(`📁 ${category.category} 폴더 데이터:`, folders);
-                        
+
                         return {
                             category: category.category,
                             path: category.path,
@@ -422,7 +422,7 @@ function FolderBrowserContent() {
             const lastViewed = localStorage.getItem(storageKey);
             if (lastViewed && Date.now() - parseInt(lastViewed, 10) < COOLDOWN) return;
             localStorage.setItem(storageKey, Date.now().toString());
-            
+
             // 그대로 사용 (변환 없음)
             await axios.post('/api/videos/views', { path });
         } catch (err) {
@@ -497,7 +497,7 @@ function FolderBrowserContent() {
                                         if (!video) return;
                                         const mp4Encoded = playingPath.split('/').map(encodeURIComponent).join('/');
                                         const mp4Url = `https://videos.haebomsoft.com/${mp4Encoded}`;
-                                        
+
                                         // iOS 먼저 체크
                                         if (isIOS) {
                                             // iOS: 네이티브 HLS → MP4 전환 + 즉시 다운로드
@@ -509,7 +509,7 @@ function FolderBrowserContent() {
                                                 videoEl.play().catch(() => { });
                                             }
                                             setIsMp4Mode(true);
-                                            
+
                                             // iOS: 즉시 다운로드 (메시지 없이)
                                             const downloadLink = document.createElement('a');
                                             downloadLink.href = `/api/videos/download?path=${encodeURIComponent(playingPath)}`;
@@ -527,7 +527,7 @@ function FolderBrowserContent() {
                                             video.currentTime = currentTime;
                                             setIsMp4Mode(true);
                                             alert('MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.');
-                                            video.play().catch(() => {});
+                                            video.play().catch(() => { });
                                         } else if (isMp4Mode) {
                                             // 이미 MP4 전환됨 → 안내 반복
                                             setTimeout(() => alert('이미 MP4로 전환되었습니다.\n영상 하단 ⋮ 메뉴에서 다운로드/전송할 수 있습니다.'), 100);
@@ -600,7 +600,7 @@ function FolderBrowserContent() {
                                             const { id } = await res.json() as { id: string };
                                             shareUrl = `${window.location.origin}/s/${id}`;
                                         }
-                                    } catch {}
+                                    } catch { }
                                     const canShare = typeof navigator.share === 'function' &&
                                         (typeof navigator.canShare !== 'function' || navigator.canShare({ url: shareUrl }));
 
@@ -629,7 +629,7 @@ function FolderBrowserContent() {
                                 </svg>
                                 현재 영상만 공유
                             </button>
-                            
+
                             {/* 같은 폴더 전체 공유 */}
                             <button
                                 onClick={async () => {
@@ -647,7 +647,7 @@ function FolderBrowserContent() {
                                             const { id } = await res.json() as { id: string };
                                             shareUrl = `${window.location.origin}/s/${id}`;
                                         }
-                                    } catch {}
+                                    } catch { }
                                     const canShare = typeof navigator.share === 'function' &&
                                         (typeof navigator.canShare !== 'function' || navigator.canShare({ url: shareUrl }));
 
@@ -677,7 +677,7 @@ function FolderBrowserContent() {
                                 같은 폴더 전체 공유
                             </button>
                         </div>
-                        
+
                         <button
                             onClick={() => setShowShareModal(false)}
                             className="w-full mt-4 py-2 text-zinc-400 hover:text-white transition-colors text-sm"
