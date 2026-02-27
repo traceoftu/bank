@@ -29,7 +29,7 @@ export async function GET() {
         }
 
         const data = await kv.get('files:all', 'json');
-        
+
         return NextResponse.json({
             success: true,
             data: data || { files: [] }
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
             // 1. 썸네일 기반 스캔 (기존 MP4 + HLS 모두)
             let cursor: string | undefined;
             do {
-                const listed = await bucket.list({ 
+                const listed = await bucket.list({
                     cursor,
                     prefix: 'thumbnails/'
                 });
@@ -105,19 +105,25 @@ export async function POST(request: NextRequest) {
                     if (!object.key.endsWith('/') && object.key.endsWith('.jpg')) {
                         const thumbPath = object.key.replace('thumbnails/', '').replace('.jpg', '');
                         const parts = thumbPath.split('/');
-                        
+
                         if (parts.length >= 2) {
                             const category = parts[0];
                             const name = parts[parts.length - 1];
-                            
-                            // HLS 폴더가 있는지 확인 (hls/파일명 폴더)
                             const nameWithoutExt = name.replace(/\.[^.]+$/, '');
+
+                            // [추가] 폴더 대표 썸네일 제외 (예: 성인/성인.jpg)
+                            // parts[parts.length-2]는 부모 폴더명, nameWithoutExt는 파일명
+                            if (parts.length >= 2 && parts[parts.length - 2] === nameWithoutExt) {
+                                continue;
+                            }
+
+                            // HLS 폴더가 있는지 확인 (hls/파일명 폴더)
                             const dirPath = thumbPath.substring(0, thumbPath.lastIndexOf('/'));
                             const hlsPath = `${dirPath}/hls/${nameWithoutExt}/index.m3u8`;
-                            
+
                             // HLS m3u8 파일 존재 여부 확인
                             const hlsObj = await bucket.head(hlsPath);
-                            
+
                             // path는 항상 MP4 경로, HLS는 별도 필드
                             if (!addedPaths.has(thumbPath)) {
                                 addedPaths.add(thumbPath);
@@ -142,7 +148,7 @@ export async function POST(request: NextRequest) {
 
             // KV에 저장
             await kv.put('files:all', JSON.stringify({ files: syncedFiles }));
-            
+
             // 홈 캐시 삭제 (새 데이터 반영)
             await kv.delete('cache:home');
 
@@ -155,7 +161,7 @@ export async function POST(request: NextRequest) {
 
         // KV에 저장
         await kv.put('files:all', JSON.stringify({ files: currentFiles }));
-        
+
         // 홈 캐시 삭제 (새 데이터 반영)
         await kv.delete('cache:home');
 

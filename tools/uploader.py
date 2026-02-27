@@ -531,10 +531,11 @@ class UploaderApp:
             bufsize = maxrate
             audio_bitrate = "128k"
         
-        # NVENC H.265 압축 명령어 (음성 싱크 개선)
+        # NVENC H.265 압축 명령어 (안정성을 위해 hwaccel cuda 제거)
+        # 하드웨어 디코딩은 특정 MOV 코덱에서 깨짐 현상을 유발할 수 있으므로 
+        # 디코딩은 CPU(소프트웨어)로, 인코딩은 GPU(NVENC)로 처리하는 것이 가장 안정적입니다.
         cmd = [
             "ffmpeg", "-y",
-            "-hwaccel", "cuda",
             "-i", input_path,
             "-c:v", "hevc_nvenc",
             "-preset", preset,
@@ -542,12 +543,12 @@ class UploaderApp:
             "-cq", crf,
             "-maxrate", maxrate,
             "-bufsize", bufsize,
-            "-async", "1",  # 음성 동기화 추가
+            "-pix_fmt", "yuv420p", # 출력 픽셀 포맷을 yuv420p로 명시적 지정
             "-c:a", "aac",
             "-b:a", audio_bitrate
         ]
         
-        # 해상도 변경 옵션 추가
+        # 해상도 변경 필터 설정
         if resolution:
             cmd.extend(["-vf", f"scale={resolution}"])
         
@@ -758,9 +759,15 @@ class UploaderApp:
                         shutil.rmtree(hls_temp_dir, ignore_errors=True)
                         continue
                 else:
-                    # 원본 MP4도 업로드 (다운로드용) - 원본 파일명으로 업로드
-                    self.log(f"  📤 원본 MP4 업로드 중...")
-                    mp4_remote_path = f"{R2_BUCKET}/{upload_path}/{filename}"
+                    # 원본 MP4도 업로드 (다운로드용) - 압축되었다면 항상 .mp4 주소로 업로드
+                    # 만약 원본이 .mov였다면 확장자를 .mp4로 변경하여 업로드 (컨테이너 불일치 해결)
+                    remote_filename = filename
+                    if compressed_path and actual_file == compressed_path:
+                        name, _ = os.path.splitext(filename)
+                        remote_filename = f"{name}.mp4"
+                    
+                    self.log(f"  📤 원본 MP4 업로드 중... ({remote_filename})")
+                    mp4_remote_path = f"{R2_BUCKET}/{upload_path}/{remote_filename}"
                     result = subprocess.run(
                         ["rclone", "copyto", actual_file, mp4_remote_path],
                         capture_output=True, text=False,
@@ -1081,12 +1088,15 @@ class UploaderApp:
                     )
                     
                     # 3. 썸네일 삭제
+                    # 썸네일은 thumbnails/{원본경로}.jpg 구조로 저장됨
                     thumb_path = f"thumbnails/{file_path}.jpg"
                     subprocess.run(
                         ["rclone", "deletefile", f"{R2_BUCKET}/{thumb_path}"],
                         capture_output=True, text=False,
                         creationflags=SUBPROCESS_FLAGS
                     )
+                    
+                    # 폴더 대표 썸네일은 삭제하지 않음 (다른 영상이 남았을 수 있으므로)
                     
                     if result.returncode == 0:
                         success += 1
